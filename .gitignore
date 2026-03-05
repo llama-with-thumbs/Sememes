@@ -1,0 +1,5 @@
+.env
+uploads/
+library/
+library.db
+__pycache__/
