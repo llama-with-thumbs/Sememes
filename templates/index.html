@@ -440,19 +440,21 @@
             <div id="text-panel">
                 <div id="text-panel-header">
                     <div class="tabs">
-                        <button class="tab active" data-tab="original">Original</button>
-                        <button class="tab" data-tab="english">English</button>
+                        <button class="tab active" data-tab="english">English</button>
+                        <button class="tab" data-tab="original">Original</button>
                     </div>
+                    <span id="single-lang-label" style="display:none; font-size:0.85rem; font-weight:500; color:var(--text-heading); padding:0 8px;">English</span>
                     <div style="display:flex; align-items:center; gap:6px;">
                         <span id="save-status"></span>
                         <button id="transcribe-btn" class="btn btn-primary" style="display:none">Transcribe</button>
                         <button id="cleanup-btn" class="btn btn-subtle" title="Remove extra blank lines">Clean up</button>
+                        <button id="close-note-btn" class="btn btn-subtle" title="Close note">&times;</button>
                         <button id="save-btn" class="btn btn-save" style="display:none">Save</button>
                     </div>
                 </div>
                 <div class="text-area-wrap">
-                    <div id="text-original" class="text-editor" contenteditable="true" data-placeholder="Original transcription..."></div>
-                    <div id="text-english" class="text-editor hidden" contenteditable="true" data-placeholder="English translation..."></div>
+                    <div id="text-english" class="text-editor" contenteditable="true" data-placeholder="English translation..."></div>
+                    <div id="text-original" class="text-editor hidden" contenteditable="true" data-placeholder="Original transcription..."></div>
                 </div>
             </div>
             <!-- Graph panel (always visible) -->
@@ -492,8 +494,11 @@
         const audioPlayer = document.getElementById("audio-player");
         const fileTitle = document.getElementById("file-title");
         const errorDiv = document.getElementById("error");
+        const closeNoteBtn = document.getElementById("close-note-btn");
 
         const tabs = document.querySelectorAll("[data-tab]");
+        const tabsContainer = document.querySelector(".tabs");
+        const singleLangLabel = document.getElementById("single-lang-label");
         const topicmapWrap = document.getElementById("topicmap-wrap");
         const topicmapContainer = document.getElementById("topicmap-container");
         const topicmapPlaceholder = document.getElementById("topicmap-placeholder");
@@ -501,7 +506,7 @@
 
         let currentFileId = null;
         let saveTimeout = null;
-        let activeTab = "original";
+        let activeTab = "english";
         let topicmapNetwork = null;
         let topicmapNodes = null;
         let topicmapEdges = null;
@@ -572,6 +577,12 @@
             }
         });
 
+        // --- Close Note ---
+        closeNoteBtn.addEventListener("click", () => {
+            resetUI();
+            document.querySelectorAll(".lib-item").forEach(el => el.classList.remove("active"));
+        });
+
         // --- New Note ---
         document.getElementById("new-note-btn").addEventListener("click", async () => {
             try {
@@ -620,7 +631,11 @@
                 await fetch(`/library/${currentFileId}/text`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text: getEditorHtml(textOriginal), text_en: getEditorHtml(textEnglish) }),
+                    body: JSON.stringify(
+                        tabsContainer.style.display === "none"
+                            ? { text: getEditorHtml(textEnglish) }
+                            : { text: getEditorHtml(textOriginal), text_en: getEditorHtml(textEnglish) }
+                    ),
                 });
                 saveStatus.textContent = "Saved";
                 setTimeout(() => { saveStatus.textContent = ""; }, 2000);
@@ -1044,8 +1059,24 @@
             const data = await res.json();
 
             currentFileId = fileId;
-            setEditorText(textOriginal, data.transcription || "");
-            setEditorText(textEnglish, data.transcription_en || "");
+
+            // If no separate English translation, or texts match — single-language mode
+            const orig = data.transcription || "";
+            const en = data.transcription_en || "";
+            const singleLang = !en || en === orig;
+
+            if (singleLang) {
+                // Show original text in the English editor (it's already English)
+                setEditorText(textEnglish, orig);
+                setEditorText(textOriginal, "");
+                tabsContainer.style.display = "none";
+                singleLangLabel.style.display = "inline";
+            } else {
+                setEditorText(textOriginal, orig);
+                setEditorText(textEnglish, en);
+                tabsContainer.style.display = "flex";
+                singleLangLabel.style.display = "none";
+            }
 
             fileTitle.textContent = data.original_name;
             textPanel.style.display = "flex";
@@ -1083,6 +1114,8 @@
             saveBtn.style.display = "none";
             transcribeBtn.style.display = "none";
             saveStatus.textContent = "";
+            tabsContainer.style.display = "flex";
+            singleLangLabel.style.display = "none";
             topicmapTooltip.style.display = "none";
             if (!lastTopicMapData) {
                 topicmapPlaceholder.style.display = "flex";
@@ -1092,10 +1125,10 @@
             audioPlayer.pause();
             audioPlayer.src = "";
             // Reset to original tab
-            activeTab = "original";
-            tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === "original"));
-            textOriginal.classList.remove("hidden");
-            textEnglish.classList.add("hidden");
+            activeTab = "english";
+            tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === "english"));
+            textEnglish.classList.remove("hidden");
+            textOriginal.classList.add("hidden");
         }
 
         function showError(msg) {
