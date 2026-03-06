@@ -25,6 +25,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(LIBRARY_FOLDER, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {"m4a", "mp3", "wav", "ogg", "flac", "webm", "mp4", "wma"}
+TEXT_EXTENSIONS = {"txt", "md", "csv", "json", "log", "rtf"}
 
 CHUNK_SECONDS = 120  # 2-minute chunks for progress tracking
 
@@ -126,7 +127,11 @@ def convert_to_mp3(input_path, output_path):
 
 
 def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in (ALLOWED_EXTENSIONS | TEXT_EXTENSIONS)
+
+
+def is_text_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in TEXT_EXTENSIONS
 
 
 # --- Translation Helper ---
@@ -167,14 +172,30 @@ def upload():
         return jsonify({"error": "No file selected"}), 400
 
     if not allowed_file(file.filename):
-        return jsonify({"error": f"Unsupported file type. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"}), 400
+        all_ext = sorted(ALLOWED_EXTENSIONS | TEXT_EXTENSIONS)
+        return jsonify({"error": f"Unsupported file type. Allowed: {', '.join(all_ext)}"}), 400
 
     filepath = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(filepath)
 
     try:
-        duration = get_audio_duration(filepath)
         file_id = str(uuid.uuid4())
+
+        if is_text_file(file.filename):
+            # Text file: read content and store as a text note
+            with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                text_content = f.read()
+            conn = get_db()
+            conn.execute(
+                "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at) VALUES (?, ?, NULL, 0, ?, ?)",
+                (file_id, file.filename, text_content, datetime.now().isoformat())
+            )
+            conn.commit()
+            conn.close()
+            return jsonify({"file_id": file_id, "original_name": file.filename, "duration": 0})
+
+        # Audio file: convert to MP3
+        duration = get_audio_duration(filepath)
         mp3_filename = file_id + ".mp3"
         mp3_path = os.path.join(LIBRARY_FOLDER, mp3_filename)
         convert_to_mp3(filepath, mp3_path)
@@ -186,13 +207,12 @@ def upload():
         )
         conn.commit()
         conn.close()
+        return jsonify({"file_id": file_id, "original_name": file.filename, "duration": duration})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         if os.path.exists(filepath):
             os.remove(filepath)
-
-    return jsonify({"file_id": file_id, "original_name": file.filename, "duration": duration})
 
 
 @app.route("/library/<file_id>/transcribe", methods=["POST"])
@@ -346,9 +366,10 @@ def library_delete(file_id):
         conn.close()
         return jsonify({"error": "File not found"}), 404
 
-    mp3_full = os.path.join(LIBRARY_FOLDER, row["mp3_path"])
-    if os.path.exists(mp3_full):
-        os.remove(mp3_full)
+    if row["mp3_path"]:
+        mp3_full = os.path.join(LIBRARY_FOLDER, row["mp3_path"])
+        if os.path.exists(mp3_full):
+            os.remove(mp3_full)
 
     conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
     conn.commit()
