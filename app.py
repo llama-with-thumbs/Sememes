@@ -1,5 +1,6 @@
 import hashlib
 import json
+import mimetypes
 import os
 import re
 import shutil
@@ -24,8 +25,11 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 LIBRARY_FOLDER = os.path.join(BASE_DIR, "library")
 DB_PATH = os.path.join(BASE_DIR, "library.db")
 
+ATTACHMENTS_FOLDER = os.path.join(BASE_DIR, "attachments")
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(LIBRARY_FOLDER, exist_ok=True)
+os.makedirs(ATTACHMENTS_FOLDER, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {"m4a", "mp3", "wav", "ogg", "flac", "webm", "mp4", "wma"}
 TEXT_EXTENSIONS = {"txt", "md", "csv", "json", "log", "rtf"}
@@ -88,6 +92,30 @@ def init_db():
         "UPDATE files SET notebook = ? WHERE notebook IS NULL OR notebook = ''",
         (DEFAULT_NOTEBOOK,)
     )
+    # Migrate: add stack column to notebooks
+    nb_cols = [r[1] for r in conn.execute("PRAGMA table_info(notebooks)").fetchall()]
+    if "stack" not in nb_cols:
+        conn.execute("ALTER TABLE notebooks ADD COLUMN stack TEXT")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS saved_searches (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            query TEXT,
+            filters TEXT,
+            created_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS attachments (
+            id TEXT PRIMARY KEY,
+            file_id TEXT,
+            filename TEXT,
+            mime_type TEXT,
+            size INTEGER,
+            created_at TEXT,
+            FOREIGN KEY (file_id) REFERENCES files(id)
+        )
+    """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS cache (
             key TEXT PRIMARY KEY,
@@ -321,6 +349,7 @@ def library_list():
     search_q = request.args.get("q")
     sort_by = request.args.get("sort", "created_desc")
     view = request.args.get("view")  # "trash", "starred", "recent"
+    tag_filter = request.args.get("tag")
 
     query = ("SELECT id, original_name, duration, created_at, updated_at, tags, notebook, starred, trashed_at, "
              "COALESCE(transcription_en, transcription, '') as raw_text, "
@@ -337,6 +366,10 @@ def library_list():
         if notebook_filter:
             conditions.append("notebook = ?")
             params.append(notebook_filter)
+
+    if tag_filter:
+        conditions.append("tags LIKE ?")
+        params.append(f'%"{tag_filter}"%')
 
     if search_q:
         conditions.append("(original_name LIKE ? OR transcription LIKE ? OR transcription_en LIKE ?)")
@@ -379,7 +412,7 @@ def library_list():
 def list_notebooks():
     conn = get_db()
     nb_rows = conn.execute(
-        "SELECT n.name, COALESCE(c.cnt, 0) as note_count FROM notebooks n "
+        "SELECT n.name, n.stack, COALESCE(c.cnt, 0) as note_count FROM notebooks n "
         "LEFT JOIN (SELECT notebook, COUNT(*) as cnt FROM files "
         "WHERE notebook IS NOT NULL AND notebook != '' AND trashed_at IS NULL "
         "GROUP BY notebook) c ON c.notebook = n.name "
@@ -427,7 +460,7 @@ def delete_notebook():
     data = request.get_json()
     name = data.get("name", "")
     conn = get_db()
-    conn.execute("UPDATE files SET notebook = NULL WHERE notebook = ?", (name,))
+    conn.execute("UPDATE files SET notebook = ? WHERE notebook = ?", (DEFAULT_NOTEBOOK, name))
     conn.execute("DELETE FROM notebooks WHERE name = ?", (name,))
     conn.commit()
     conn.close()
@@ -778,6 +811,300 @@ def build_topic_map():
     conn.close()
 
     return jsonify(topic_map)
+
+
+# --- Tags ---
+
+@app.route("/tags")
+def list_tags():
+    """List all unique tags with note counts."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT tags FROM files WHERE tags IS NOT NULL AND tags != '' AND trashed_at IS NULL"
+    ).fetchall()
+    conn.close()
+    tag_counts = {}
+    for r in rows:
+        try:
+            for t in json.loads(r["tags"]):
+                tag_counts[t] = tag_counts.get(t, 0) + 1
+        except (json.JSONDecodeError, TypeError):
+            pass
+    result = [{"name": k, "count": v} for k, v in sorted(tag_counts.items())]
+    return jsonify(result)
+
+
+@app.route("/tags/rename", methods=["PUT"])
+def rename_tag():
+    data = request.get_json()
+    old_name = (data.get("old") or "").strip()
+    new_name = (data.get("new") or "").strip()
+    if not old_name or not new_name:
+        return jsonify({"error": "Both old and new tag names required"}), 400
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, tags FROM files WHERE tags LIKE ? AND trashed_at IS NULL",
+        (f'%"{old_name}"%',)
+    ).fetchall()
+    updated = 0
+    for r in rows:
+        try:
+            tags = json.loads(r["tags"])
+            if old_name in tags:
+                tags = [new_name if t == old_name else t for t in tags]
+                # Deduplicate
+                tags = list(dict.fromkeys(tags))
+                conn.execute("UPDATE files SET tags = ? WHERE id = ?", (json.dumps(tags), r["id"]))
+                updated += 1
+        except (json.JSONDecodeError, TypeError):
+            pass
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "updated": updated})
+
+
+@app.route("/tags/merge", methods=["POST"])
+def merge_tags():
+    data = request.get_json()
+    sources = data.get("sources", [])
+    target = (data.get("target") or "").strip()
+    if not sources or not target:
+        return jsonify({"error": "Sources and target required"}), 400
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, tags FROM files WHERE tags IS NOT NULL AND trashed_at IS NULL"
+    ).fetchall()
+    updated = 0
+    for r in rows:
+        try:
+            tags = json.loads(r["tags"])
+            original = list(tags)
+            tags = [target if t in sources else t for t in tags]
+            tags = list(dict.fromkeys(tags))
+            if tags != original:
+                conn.execute("UPDATE files SET tags = ? WHERE id = ?", (json.dumps(tags), r["id"]))
+                updated += 1
+        except (json.JSONDecodeError, TypeError):
+            pass
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "updated": updated})
+
+
+@app.route("/library/<file_id>/tags", methods=["PUT"])
+def update_note_tags(file_id):
+    data = request.get_json()
+    tags = data.get("tags", [])
+    conn = get_db()
+    conn.execute("UPDATE files SET tags = ? WHERE id = ?", (json.dumps(tags), file_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "tags": tags})
+
+
+# --- Notebook Stacks ---
+
+@app.route("/notebooks/<name>/stack", methods=["PUT"])
+def set_notebook_stack(name):
+    data = request.get_json()
+    stack = (data.get("stack") or "").strip()
+    conn = get_db()
+    conn.execute("UPDATE notebooks SET stack = ? WHERE name = ?", (stack or None, name))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+# --- Bulk Actions ---
+
+@app.route("/library/bulk", methods=["POST"])
+def bulk_action():
+    data = request.get_json()
+    ids = data.get("ids", [])
+    action = data.get("action", "")
+    if not ids:
+        return jsonify({"error": "No notes selected"}), 400
+
+    conn = get_db()
+    placeholders = ",".join("?" * len(ids))
+
+    if action == "trash":
+        now = datetime.now().isoformat()
+        conn.execute(f"UPDATE files SET trashed_at = ? WHERE id IN ({placeholders})", [now] + ids)
+    elif action == "star":
+        conn.execute(f"UPDATE files SET starred = 1 WHERE id IN ({placeholders})", ids)
+    elif action == "unstar":
+        conn.execute(f"UPDATE files SET starred = 0 WHERE id IN ({placeholders})", ids)
+    elif action == "move":
+        notebook = data.get("notebook", DEFAULT_NOTEBOOK)
+        conn.execute(f"UPDATE files SET notebook = ? WHERE id IN ({placeholders})", [notebook] + ids)
+    elif action == "tag":
+        tag = (data.get("tag") or "").strip()
+        if tag:
+            rows = conn.execute(f"SELECT id, tags FROM files WHERE id IN ({placeholders})", ids).fetchall()
+            for r in rows:
+                try:
+                    tags = json.loads(r["tags"]) if r["tags"] else []
+                except (json.JSONDecodeError, TypeError):
+                    tags = []
+                if tag not in tags:
+                    tags.append(tag)
+                conn.execute("UPDATE files SET tags = ? WHERE id = ?", (json.dumps(tags), r["id"]))
+    elif action == "untag":
+        tag = (data.get("tag") or "").strip()
+        if tag:
+            rows = conn.execute(f"SELECT id, tags FROM files WHERE id IN ({placeholders})", ids).fetchall()
+            for r in rows:
+                try:
+                    tags = json.loads(r["tags"]) if r["tags"] else []
+                except (json.JSONDecodeError, TypeError):
+                    tags = []
+                tags = [t for t in tags if t != tag]
+                conn.execute("UPDATE files SET tags = ? WHERE id = ?", (json.dumps(tags), r["id"]))
+    elif action == "delete":
+        # Permanent delete for trashed notes
+        for fid in ids:
+            row = conn.execute("SELECT mp3_path FROM files WHERE id = ?", (fid,)).fetchone()
+            if row and row["mp3_path"]:
+                mp3_full = os.path.join(LIBRARY_FOLDER, row["mp3_path"])
+                if os.path.exists(mp3_full):
+                    os.remove(mp3_full)
+        conn.execute(f"DELETE FROM files WHERE id IN ({placeholders})", ids)
+    else:
+        conn.close()
+        return jsonify({"error": f"Unknown action: {action}"}), 400
+
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "count": len(ids)})
+
+
+# --- Saved Searches ---
+
+@app.route("/saved-searches")
+def list_saved_searches():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM saved_searches ORDER BY created_at DESC").fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/saved-searches", methods=["POST"])
+def create_saved_search():
+    data = request.get_json()
+    name = (data.get("name") or "").strip()
+    query = (data.get("query") or "").strip()
+    filters = data.get("filters", {})
+    if not name:
+        return jsonify({"error": "Name required"}), 400
+    search_id = str(uuid.uuid4())
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO saved_searches (id, name, query, filters, created_at) VALUES (?, ?, ?, ?, ?)",
+        (search_id, name, query, json.dumps(filters), datetime.now().isoformat())
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"id": search_id, "name": name, "query": query, "filters": filters})
+
+
+@app.route("/saved-searches/<search_id>", methods=["DELETE"])
+def delete_saved_search(search_id):
+    conn = get_db()
+    conn.execute("DELETE FROM saved_searches WHERE id = ?", (search_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+# --- Attachments ---
+
+IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"}
+ATTACH_EXTENSIONS = IMAGE_EXTENSIONS | {"pdf", "doc", "docx", "xls", "xlsx", "zip", "mp3", "wav", "m4a"}
+
+
+@app.route("/library/<file_id>/attachments", methods=["POST"])
+def upload_attachment(file_id):
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    file = request.files["file"]
+    if not file.filename:
+        return jsonify({"error": "No file selected"}), 400
+
+    att_id = str(uuid.uuid4())
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    save_name = att_id + ("." + ext if ext else "")
+    save_path = os.path.join(ATTACHMENTS_FOLDER, save_name)
+    file.save(save_path)
+
+    mime = mimetypes.guess_type(file.filename)[0] or "application/octet-stream"
+    size = os.path.getsize(save_path)
+
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO attachments (id, file_id, filename, mime_type, size, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (att_id, file_id, file.filename, mime, size, datetime.now().isoformat())
+    )
+    conn.commit()
+    conn.close()
+
+    is_image = ext in IMAGE_EXTENSIONS
+    return jsonify({
+        "id": att_id, "filename": file.filename, "mime_type": mime,
+        "size": size, "is_image": is_image,
+        "url": f"/attachments/{att_id}"
+    })
+
+
+@app.route("/attachments/<att_id>")
+def serve_attachment(att_id):
+    conn = get_db()
+    row = conn.execute("SELECT filename, mime_type FROM attachments WHERE id = ?", (att_id,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"error": "Not found"}), 404
+
+    # Find the file (with any extension)
+    for f in os.listdir(ATTACHMENTS_FOLDER):
+        if f.startswith(att_id):
+            return send_file(
+                os.path.join(ATTACHMENTS_FOLDER, f),
+                mimetype=row["mime_type"],
+                download_name=row["filename"]
+            )
+    return jsonify({"error": "File missing"}), 404
+
+
+@app.route("/library/<file_id>/attachments")
+def list_attachments(file_id):
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, filename, mime_type, size, created_at FROM attachments WHERE file_id = ? ORDER BY created_at",
+        (file_id,)
+    ).fetchall()
+    conn.close()
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["url"] = f"/attachments/{r['id']}"
+        d["is_image"] = any(r["filename"].lower().endswith("." + e) for e in IMAGE_EXTENSIONS)
+        result.append(d)
+    return jsonify(result)
+
+
+@app.route("/library/search-titles")
+def search_note_titles():
+    """Search note titles for internal linking."""
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify([])
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, original_name FROM files WHERE trashed_at IS NULL AND original_name LIKE ? LIMIT 10",
+        (f"%{q}%",)
+    ).fetchall()
+    conn.close()
+    return jsonify([{"id": r["id"], "name": r["original_name"]} for r in rows])
 
 
 # --- Evernote Import ---

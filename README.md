@@ -14,6 +14,23 @@ Sememes is a personal knowledge tool that records voice notes, transcribes with 
 - **Sorting** — Sort notes by created date, updated date, or title (ascending/descending)
 - **Search** — Real-time search across note titles and content
 - **Rich text editor** — Formatting toolbar with Bold, Italic, Underline, Strikethrough, Headings (H1–H3), Bullet/Numbered lists, and a whitespace cleanup tool
+- **Undo / Redo** — Toolbar buttons and keyboard shortcuts (Ctrl+Z / Ctrl+Y)
+- **Checklists** — Interactive checkbox lists with auto-continuation on Enter
+- **Links** — Insert external hyperlinks (Ctrl+K) and internal note links (Ctrl+Shift+K) with autocomplete search
+- **Code blocks** — Monospace-styled code blocks with syntax-friendly formatting
+- **Blockquotes** — Styled quote blocks (Ctrl+Shift+Q)
+- **Tables** — Insert editable HTML tables with configurable rows/columns
+- **Image embedding** — Upload and embed images inline in notes
+- **File attachments** — Attach PDFs, documents, audio, and other files to notes; attachments bar at bottom
+- **Keyboard shortcuts** — Ctrl+1/2/3 for headings, Ctrl+Shift+S strikethrough, Ctrl+Shift+U bullet list, Ctrl+Shift+O numbered list, Ctrl+Shift+C checklist
+
+### Organization
+- **Tag management** — Add, remove, rename, and merge tags across notes; inline tag editor in note metadata
+- **Nested tags** — Hierarchical tags using "/" separator (e.g., "work/meetings"); grouped display in sidebar
+- **Tag filtering** — Click any tag in the sidebar to filter notes; filter by tag group (parent prefix)
+- **Notebook stacks** — Group notebooks into collapsible stacks via right-click; persistent collapse state
+- **Bulk actions** — Multi-select notes (long-press or checkbox); bulk star, move, tag, or trash
+- **Saved searches** — Save search queries with filters for quick recall; manage in sidebar
 
 ### Audio & Transcription
 - **Audio upload** — Supports m4a, mp3, wav, ogg, flac, webm, mp4, wma
@@ -63,6 +80,7 @@ Six built-in themes: Light, Evernote (green accent), Dark, Midnight, Warm, and N
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │                      REST API Routes                         │   │
 │  │  /library    /notebooks    /upload    /import-enex           │   │
+│  │  /tags    /saved-searches    /library/bulk                   │   │
 │  │  /library/<id>/text    /transcribe    /build-topic-map       │   │
 │  └──────┬───────────┬──────────────┬───────────────┬────────────┘   │
 │         │           │              │               │                │
@@ -73,6 +91,8 @@ Six built-in themes: Light, Evernote (green accent), Dark, Midnight, Warm, and N
 │  │ files   │ │ Audio →     │ │ Audio    │ │ - Translation     │     │
 │  │ note-   │ │ Text        │ │ convert  │ │ - Topic map       │     │
 │  │ books   │ │ ~4.6GB RAM  │ │ & split  │ │   analysis        │     │
+│  │ attach  │ │             │ │          │ │                   │     │
+│  │ saved   │ │             │ │          │ │                   │     │
 │  │ cache   │ │             │ │          │ │                   │     │
 │  └─────────┘ └─────────────┘ └─────────┘ └───────────────────┘     │
 └─────────────────────────────────────────────────────────────────────┘

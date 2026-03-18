@@ -283,6 +283,91 @@
             --nb-active: #434c5e;
         }
 
+        /* --- Notebook Stacks --- */
+        .nb-stack {
+            cursor: pointer; padding: 5px 14px; font-size: 0.75rem; font-weight: 600;
+            color: var(--text-secondary); display: flex; align-items: center; gap: 4px;
+            text-transform: uppercase; letter-spacing: 0.03em;
+        }
+        .nb-stack:hover { color: var(--text-heading); }
+        .nb-stack .nb-stack-arrow {
+            font-size: 0.6rem; transition: transform 0.15s; display: inline-block;
+        }
+        .nb-stack.collapsed .nb-stack-arrow { transform: rotate(-90deg); }
+        .nb-stack.collapsed + .nb-stack-items { display: none; }
+        .nb-stack-items .nb-item { padding-left: 28px; }
+
+        /* --- Tags Section --- */
+        #nb-tags-section { border-top: 1px solid var(--border); }
+        .nb-tag-item {
+            padding: 5px 14px; font-size: 0.78rem; color: var(--text-secondary);
+            cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+            transition: background 0.1s;
+        }
+        .nb-tag-item:hover { background: var(--bg-surface-hover); }
+        .nb-tag-item.active { background: var(--nb-active); color: var(--text-heading); font-weight: 500; }
+        .nb-tag-item .tag-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .nb-tag-item .tag-actions { display: none; gap: 2px; }
+        .nb-tag-item:hover .tag-actions { display: flex; }
+        .nb-tag-item .tag-action-btn {
+            background: none; border: none; color: var(--text-faint); cursor: pointer;
+            font-size: 0.72rem; padding: 0 2px; line-height: 1;
+        }
+        .nb-tag-item .tag-action-btn:hover { color: var(--accent); }
+
+        /* --- Tag Editor (in note meta) --- */
+        #tag-editor { display: none; align-items: center; flex-wrap: wrap; gap: 4px; }
+        .tag-pill {
+            display: inline-flex; align-items: center; gap: 2px; padding: 1px 6px;
+            background: var(--accent-bg); color: var(--accent); border: 1px solid var(--border);
+            border-radius: 10px; font-size: 0.7rem;
+        }
+        .tag-pill .tag-remove {
+            background: none; border: none; color: var(--text-muted); cursor: pointer;
+            font-size: 0.75rem; line-height: 1; padding: 0 1px;
+        }
+        .tag-pill .tag-remove:hover { color: var(--delete-hover-text); }
+        #tag-add-input {
+            border: none; background: transparent; color: var(--text-primary);
+            font-size: 0.72rem; width: 80px; outline: none; font-family: inherit;
+        }
+        #tag-add-input::placeholder { color: var(--text-faint); }
+
+        /* --- Bulk Actions --- */
+        #bulk-bar {
+            display: none; padding: 6px 14px; background: var(--accent-bg);
+            border-bottom: 1px solid var(--accent); align-items: center; gap: 8px;
+            font-size: 0.78rem;
+        }
+        #bulk-bar.visible { display: flex; }
+        #bulk-bar .bulk-count { font-weight: 600; color: var(--accent); }
+        #bulk-bar button {
+            background: none; border: 1px solid var(--border); border-radius: 4px;
+            color: var(--text-secondary); cursor: pointer; padding: 2px 8px; font-size: 0.72rem;
+        }
+        #bulk-bar button:hover { border-color: var(--accent); color: var(--accent); }
+        #bulk-bar .bulk-spacer { flex: 1; }
+        .note-card .bulk-checkbox {
+            display: none; margin-right: 6px; accent-color: var(--accent); cursor: pointer;
+        }
+        .bulk-mode .note-card .bulk-checkbox { display: inline; }
+
+        /* --- Saved Searches --- */
+        #saved-searches-section { border-top: 1px solid var(--border); }
+        .saved-search-item {
+            padding: 5px 14px; font-size: 0.78rem; color: var(--text-secondary);
+            cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+            transition: background 0.1s;
+        }
+        .saved-search-item:hover { background: var(--bg-surface-hover); }
+        .saved-search-item .ss-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .saved-search-item .ss-delete {
+            display: none; background: none; border: none; color: var(--text-faint);
+            cursor: pointer; font-size: 0.8rem; padding: 0 2px; line-height: 1;
+        }
+        .saved-search-item:hover .ss-delete { display: inline; }
+        .saved-search-item .ss-delete:hover { color: var(--delete-hover-text); }
+
         /* --- Reset & Base --- */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -466,6 +551,90 @@
         .toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
         .toolbar-spacer { flex: 1; }
         .toolbar-btn svg { width: 16px; height: 16px; vertical-align: middle; fill: currentColor; }
+        .toolbar-group { display: flex; align-items: center; gap: 2px; }
+
+        /* Checklist */
+        .editor-checklist { list-style: none; padding-left: 4px; margin: 6px 0; }
+        .editor-checklist li { display: flex; align-items: flex-start; gap: 6px; padding: 2px 0; }
+        .editor-checklist li input[type="checkbox"] { margin-top: 3px; cursor: pointer; accent-color: var(--accent); }
+        .editor-checklist li.checked > span { text-decoration: line-through; color: var(--text-muted); }
+
+        /* Code block */
+        .editor-code-block {
+            background: var(--bg-body); border: 1px solid var(--border); border-radius: 6px;
+            padding: 12px 16px; font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+            font-size: 0.85rem; white-space: pre-wrap; margin: 8px 0; color: var(--text-primary);
+            overflow-x: auto;
+        }
+        code:not(.editor-code-block) {
+            background: var(--bg-body); border: 1px solid var(--border); border-radius: 3px;
+            padding: 1px 4px; font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+            font-size: 0.88em;
+        }
+
+        /* Blockquote */
+        blockquote, .editor-quote {
+            border-left: 3px solid var(--accent); margin: 8px 0; padding: 8px 16px;
+            background: var(--accent-bg); color: var(--text-secondary); font-style: italic;
+        }
+
+        /* Table */
+        .text-editor table {
+            border-collapse: collapse; width: 100%; margin: 8px 0;
+        }
+        .text-editor table th, .text-editor table td {
+            border: 1px solid var(--border); padding: 6px 10px; text-align: left;
+            min-width: 60px;
+        }
+        .text-editor table th {
+            background: var(--bg-panel); font-weight: 600; color: var(--text-heading);
+        }
+        .text-editor table td { background: var(--bg-surface); }
+
+        /* Link dialog */
+        .toolbar-dialog {
+            position: absolute; top: 100%; left: 0; z-index: 100;
+            background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 12px; min-width: 300px;
+        }
+        .toolbar-dialog input {
+            width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px;
+            background: var(--bg-panel); color: var(--text-primary); font-size: 0.85rem;
+            margin-bottom: 8px; outline: none; font-family: inherit;
+        }
+        .toolbar-dialog input:focus { border-color: var(--accent); }
+        .toolbar-dialog .dialog-actions { display: flex; gap: 6px; justify-content: flex-end; }
+        .toolbar-dialog .dialog-actions button {
+            padding: 4px 12px; border-radius: 4px; border: 1px solid var(--border);
+            cursor: pointer; font-size: 0.8rem; font-family: inherit;
+        }
+        .toolbar-dialog .dialog-actions .btn-apply {
+            background: var(--accent); color: #fff; border-color: var(--accent);
+        }
+        .toolbar-dialog .dialog-actions .btn-cancel {
+            background: var(--bg-panel); color: var(--text-secondary);
+        }
+        .toolbar-dialog .note-search-results {
+            max-height: 150px; overflow-y: auto; margin-bottom: 8px;
+        }
+        .toolbar-dialog .note-search-results div {
+            padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 0.82rem;
+            color: var(--text-primary);
+        }
+        .toolbar-dialog .note-search-results div:hover { background: var(--accent-bg); }
+
+        /* Attachments bar */
+        #attachments-bar {
+            display: none; padding: 6px 20px; border-top: 1px solid var(--border);
+            background: var(--bg-panel); font-size: 0.78rem; max-height: 80px; overflow-y: auto;
+        }
+        #attachments-bar .att-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        #attachments-bar .att-item {
+            display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+            background: var(--bg-surface); border: 1px solid var(--border); border-radius: 4px;
+            color: var(--text-secondary); cursor: pointer;
+        }
+        #attachments-bar .att-item:hover { border-color: var(--accent); color: var(--accent); }
 
         /* Note title */
         #note-title-bar { padding: 12px 20px 0; }
@@ -677,6 +846,19 @@
             <div class="nb-section-label">Notebooks</div>
             <div id="nb-items"></div>
             <div class="nb-separator"></div>
+            <div id="nb-tags-section">
+                <div class="nb-section-label" style="display:flex;justify-content:space-between;align-items:center">
+                    Tags
+                    <button class="tag-action-btn" id="manage-tags-btn" title="Manage tags" style="font-size:0.72rem;background:none;border:none;color:var(--text-faint);cursor:pointer">&#9881;</button>
+                </div>
+                <div id="nb-tags"></div>
+            </div>
+            <div class="nb-separator"></div>
+            <div id="saved-searches-section">
+                <div class="nb-section-label">Saved Searches</div>
+                <div id="saved-searches-list"></div>
+            </div>
+            <div class="nb-separator"></div>
             <div class="nb-item" data-nb="trash" id="nb-trash">
                 <span class="nb-name">Trash</span>
                 <span class="nb-count" id="nb-trash-count">0</span>
@@ -709,8 +891,19 @@
                 </div>
             </div>
         </div>
-        <div id="search-bar">
-            <input type="text" id="search-input" placeholder="Search notes...">
+        <div id="search-bar" style="display:flex;gap:4px;align-items:center;padding:0 14px 10px">
+            <input type="text" id="search-input" placeholder="Search notes..." style="flex:1">
+            <button id="save-search-btn" title="Save this search" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-muted);cursor:pointer;padding:3px 6px;font-size:0.72rem;display:none">Save</button>
+        </div>
+        <div id="bulk-bar">
+            <input type="checkbox" id="bulk-select-all" title="Select all">
+            <span class="bulk-count"><span id="bulk-count-num">0</span> selected</span>
+            <div class="bulk-spacer"></div>
+            <button id="bulk-star-btn" title="Star">&#9733;</button>
+            <button id="bulk-move-btn" title="Move to notebook">Move</button>
+            <button id="bulk-tag-btn" title="Add tag">Tag</button>
+            <button id="bulk-trash-btn" title="Move to trash">Trash</button>
+            <button id="bulk-cancel-btn" title="Cancel selection">&#10005;</button>
         </div>
         <div id="sort-bar">
             <select id="sort-select">
@@ -748,25 +941,41 @@
         <!-- Active editor -->
         <div id="editor-active">
             <!-- Toolbar -->
-            <div id="editor-toolbar">
+            <div id="editor-toolbar" style="position:relative">
+                <button class="toolbar-btn" id="undo-btn" title="Undo (Ctrl+Z)">&#8630;</button>
+                <button class="toolbar-btn" id="redo-btn" title="Redo (Ctrl+Y)">&#8631;</button>
+                <div class="toolbar-sep"></div>
                 <button class="toolbar-btn" data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
                 <button class="toolbar-btn" data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
                 <button class="toolbar-btn" data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
-                <button class="toolbar-btn" data-cmd="strikeThrough" title="Strikethrough"><s>S</s></button>
+                <button class="toolbar-btn" data-cmd="strikeThrough" title="Strikethrough (Ctrl+Shift+S)"><s>S</s></button>
                 <div class="toolbar-sep"></div>
-                <button class="toolbar-btn" data-block="H1" title="Heading 1">H1</button>
-                <button class="toolbar-btn" data-block="H2" title="Heading 2">H2</button>
-                <button class="toolbar-btn" data-block="H3" title="Heading 3">H3</button>
+                <button class="toolbar-btn" data-block="H1" title="Heading 1 (Ctrl+1)">H1</button>
+                <button class="toolbar-btn" data-block="H2" title="Heading 2 (Ctrl+2)">H2</button>
+                <button class="toolbar-btn" data-block="H3" title="Heading 3 (Ctrl+3)">H3</button>
                 <div class="toolbar-sep"></div>
-                <button class="toolbar-btn" data-cmd="insertUnorderedList" title="Bullet List">&#8226; List</button>
-                <button class="toolbar-btn" data-cmd="insertOrderedList" title="Numbered List">1. List</button>
+                <button class="toolbar-btn" data-cmd="insertUnorderedList" title="Bullet List (Ctrl+Shift+U)">&#8226; List</button>
+                <button class="toolbar-btn" data-cmd="insertOrderedList" title="Numbered List (Ctrl+Shift+O)">1. List</button>
+                <button class="toolbar-btn" id="checklist-btn" title="Checklist (Ctrl+Shift+C)">&#9745;</button>
+                <div class="toolbar-sep"></div>
+                <button class="toolbar-btn" id="link-btn" title="Insert Link (Ctrl+K)">&#128279;</button>
+                <button class="toolbar-btn" id="notelink-btn" title="Link to Note (Ctrl+Shift+K)">@</button>
+                <div class="toolbar-sep"></div>
+                <button class="toolbar-btn" id="codeblock-btn" title="Code Block">&#60;/&#62;</button>
+                <button class="toolbar-btn" id="quote-btn" title="Blockquote (Ctrl+Shift+Q)">&#10077;</button>
+                <button class="toolbar-btn" id="table-btn" title="Insert Table">&#9638;</button>
+                <div class="toolbar-sep"></div>
+                <button class="toolbar-btn" id="image-btn" title="Insert Image">&#128247;</button>
+                <button class="toolbar-btn" id="attach-btn" title="Attach File">&#128206;</button>
                 <div class="toolbar-sep"></div>
                 <button class="toolbar-btn" id="cleanup-btn" title="Remove extra blank lines">Clean up</button>
-                <div class="toolbar-sep"></div>
                 <button class="toolbar-btn" id="duplicate-btn" title="Duplicate note">Duplicate</button>
                 <button class="toolbar-btn" id="star-btn" title="Star / Unstar">&#9734;</button>
                 <div class="toolbar-spacer"></div>
                 <button class="toolbar-btn" id="topicmap-toggle" title="Toggle Topic Map">Topic Map</button>
+                <!-- Hidden file inputs for image/attachment upload -->
+                <input type="file" id="image-input" accept="image/*" style="display:none">
+                <input type="file" id="attach-input" style="display:none">
             </div>
 
             <!-- Note title -->
@@ -787,6 +996,13 @@
                 <div class="meta-item" id="meta-tags-wrap" style="display:none">
                     <span class="meta-label">Tags:</span>
                     <span id="meta-tags"></span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Tags:</span>
+                    <div id="tag-editor">
+                        <span id="tag-pills"></span>
+                        <input type="text" id="tag-add-input" placeholder="Add tag...">
+                    </div>
                 </div>
                 <span id="save-status"></span>
             </div>
@@ -818,6 +1034,11 @@
             <div class="editor-wrap">
                 <div id="text-english" class="text-editor" contenteditable="true" data-placeholder="Start writing..."></div>
                 <div id="text-original" class="text-editor hidden" contenteditable="true" data-placeholder="Original transcription..."></div>
+            </div>
+
+            <!-- Attachments bar -->
+            <div id="attachments-bar">
+                <div class="att-list" id="att-list"></div>
             </div>
         </div>
     </div>
@@ -936,6 +1157,462 @@
             });
         });
 
+        // --- Undo / Redo ---
+        document.getElementById("undo-btn").addEventListener("click", (e) => {
+            e.preventDefault(); document.execCommand("undo"); getActiveEditor().focus();
+        });
+        document.getElementById("redo-btn").addEventListener("click", (e) => {
+            e.preventDefault(); document.execCommand("redo"); getActiveEditor().focus();
+        });
+
+        function getActiveEditor() {
+            return activeTab === "original" ? textOriginal : textEnglish;
+        }
+
+        // --- Checklist ---
+        document.getElementById("checklist-btn").addEventListener("click", (e) => {
+            e.preventDefault();
+            const editor = getActiveEditor();
+            const ul = document.createElement("ul");
+            ul.className = "editor-checklist";
+            const li = document.createElement("li");
+            const cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.addEventListener("change", handleChecklistToggle);
+            const span = document.createElement("span");
+            span.setAttribute("contenteditable", "true");
+            span.textContent = "Task item";
+            li.appendChild(cb);
+            li.appendChild(span);
+            ul.appendChild(li);
+            insertNodeAtCursor(editor, ul);
+            // Select the text for easy editing
+            const range = document.createRange();
+            range.selectNodeContents(span);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        });
+
+        function handleChecklistToggle(e) {
+            const li = e.target.closest("li");
+            if (li) li.classList.toggle("checked", e.target.checked);
+        }
+
+        // Delegate checklist checkbox clicks within editors
+        [textEnglish, textOriginal].forEach(editor => {
+            editor.addEventListener("change", (e) => {
+                if (e.target.type === "checkbox" && e.target.closest(".editor-checklist")) {
+                    handleChecklistToggle(e);
+                }
+            });
+            // Enter key in checklist creates new item
+            editor.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    const sel = window.getSelection();
+                    const li = sel.anchorNode && sel.anchorNode.closest ? sel.anchorNode.closest(".editor-checklist li") : (sel.anchorNode && sel.anchorNode.parentElement ? sel.anchorNode.parentElement.closest(".editor-checklist li") : null);
+                    if (li) {
+                        e.preventDefault();
+                        const newLi = document.createElement("li");
+                        const cb = document.createElement("input");
+                        cb.type = "checkbox";
+                        cb.addEventListener("change", handleChecklistToggle);
+                        const span = document.createElement("span");
+                        span.setAttribute("contenteditable", "true");
+                        newLi.appendChild(cb);
+                        newLi.appendChild(span);
+                        li.parentNode.insertBefore(newLi, li.nextSibling);
+                        const range = document.createRange();
+                        range.setStart(span, 0);
+                        range.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
+                }
+            });
+        });
+
+        // --- Insert Link ---
+        document.getElementById("link-btn").addEventListener("click", (e) => {
+            e.preventDefault();
+            showLinkDialog();
+        });
+
+        function showLinkDialog() {
+            closAllDialogs();
+            const editor = getActiveEditor();
+            const sel = window.getSelection();
+            const selectedText = sel.rangeCount > 0 ? sel.toString() : "";
+            const savedRange = sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+
+            const dialog = document.createElement("div");
+            dialog.className = "toolbar-dialog";
+            dialog.id = "link-dialog";
+            dialog.innerHTML = `
+                <input type="text" id="link-text-input" placeholder="Link text" value="${escapeHtml(selectedText)}">
+                <input type="url" id="link-url-input" placeholder="https://...">
+                <div class="dialog-actions">
+                    <button class="btn-cancel" id="link-cancel">Cancel</button>
+                    <button class="btn-apply" id="link-apply">Insert</button>
+                </div>
+            `;
+            document.getElementById("editor-toolbar").appendChild(dialog);
+            const urlInput = document.getElementById("link-url-input");
+            urlInput.focus();
+
+            document.getElementById("link-cancel").addEventListener("click", () => dialog.remove());
+            document.getElementById("link-apply").addEventListener("click", () => {
+                const text = document.getElementById("link-text-input").value.trim() || urlInput.value;
+                const url = urlInput.value.trim();
+                if (!url) { dialog.remove(); return; }
+                dialog.remove();
+                if (savedRange) {
+                    sel.removeAllRanges();
+                    sel.addRange(savedRange);
+                }
+                const a = document.createElement("a");
+                a.href = url;
+                a.textContent = text;
+                a.target = "_blank";
+                a.rel = "noopener";
+                if (savedRange) {
+                    savedRange.deleteContents();
+                    savedRange.insertNode(a);
+                    savedRange.setStartAfter(a);
+                    sel.removeAllRanges();
+                    sel.addRange(savedRange);
+                } else {
+                    editor.appendChild(a);
+                }
+                editor.focus();
+            });
+            urlInput.addEventListener("keydown", (e) => { if (e.key === "Enter") document.getElementById("link-apply").click(); });
+        }
+
+        // --- Internal Note Link ---
+        document.getElementById("notelink-btn").addEventListener("click", (e) => {
+            e.preventDefault();
+            showNoteLinkDialog();
+        });
+
+        function showNoteLinkDialog() {
+            closAllDialogs();
+            const sel = window.getSelection();
+            const savedRange = sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+
+            const dialog = document.createElement("div");
+            dialog.className = "toolbar-dialog";
+            dialog.id = "notelink-dialog";
+            dialog.innerHTML = `
+                <input type="text" id="notelink-search" placeholder="Search notes by title...">
+                <div class="note-search-results" id="notelink-results"></div>
+                <div class="dialog-actions">
+                    <button class="btn-cancel" id="notelink-cancel">Cancel</button>
+                </div>
+            `;
+            document.getElementById("editor-toolbar").appendChild(dialog);
+            const searchInput2 = document.getElementById("notelink-search");
+            searchInput2.focus();
+
+            let searchTimer = null;
+            searchInput2.addEventListener("input", () => {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(async () => {
+                    const q = searchInput2.value.trim();
+                    if (q.length < 2) { document.getElementById("notelink-results").innerHTML = ""; return; }
+                    try {
+                        const res = await fetch(`/library/search-titles?q=${encodeURIComponent(q)}`);
+                        const notes = await res.json();
+                        const resultsDiv = document.getElementById("notelink-results");
+                        resultsDiv.innerHTML = notes.map(n =>
+                            `<div data-nid="${escapeHtml(n.id)}" data-name="${escapeHtml(n.name)}">${escapeHtml(n.name)}</div>`
+                        ).join("");
+                        resultsDiv.querySelectorAll("div").forEach(div => {
+                            div.addEventListener("click", () => {
+                                const editor = getActiveEditor();
+                                dialog.remove();
+                                if (savedRange) {
+                                    sel.removeAllRanges();
+                                    sel.addRange(savedRange);
+                                }
+                                const a = document.createElement("a");
+                                a.href = "#";
+                                a.className = "internal-note-link";
+                                a.dataset.noteId = div.dataset.nid;
+                                a.textContent = div.dataset.name;
+                                a.addEventListener("click", internalLinkHandler);
+                                if (savedRange) {
+                                    savedRange.deleteContents();
+                                    savedRange.insertNode(a);
+                                    savedRange.setStartAfter(a);
+                                    sel.removeAllRanges();
+                                    sel.addRange(savedRange);
+                                } else {
+                                    editor.appendChild(a);
+                                }
+                                editor.focus();
+                            });
+                        });
+                    } catch (_) {}
+                }, 300);
+            });
+
+            document.getElementById("notelink-cancel").addEventListener("click", () => dialog.remove());
+        }
+
+        function internalLinkHandler(e) {
+            e.preventDefault();
+            const noteId = e.target.dataset.noteId;
+            if (noteId) openFile(noteId);
+        }
+
+        // Delegate internal link clicks in editors
+        [textEnglish, textOriginal].forEach(editor => {
+            editor.addEventListener("click", (e) => {
+                const link = e.target.closest(".internal-note-link");
+                if (link) { e.preventDefault(); openFile(link.dataset.noteId); }
+            });
+        });
+
+        function closAllDialogs() {
+            document.querySelectorAll(".toolbar-dialog").forEach(d => d.remove());
+        }
+
+        // Close dialogs on outside click
+        document.addEventListener("click", (e) => {
+            if (!e.target.closest(".toolbar-dialog") && !e.target.closest("#link-btn") && !e.target.closest("#notelink-btn") && !e.target.closest("#table-btn")) {
+                closAllDialogs();
+            }
+        });
+
+        // --- Code Block ---
+        document.getElementById("codeblock-btn").addEventListener("click", (e) => {
+            e.preventDefault();
+            const editor = getActiveEditor();
+            const pre = document.createElement("pre");
+            pre.className = "editor-code-block";
+            pre.setAttribute("contenteditable", "true");
+            pre.textContent = "code here";
+            insertNodeAtCursor(editor, pre);
+            // Add a paragraph after so user can continue typing
+            const p = document.createElement("p");
+            p.innerHTML = "<br>";
+            pre.parentNode.insertBefore(p, pre.nextSibling);
+            const range = document.createRange();
+            range.selectNodeContents(pre);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        });
+
+        // --- Blockquote ---
+        document.getElementById("quote-btn").addEventListener("click", (e) => {
+            e.preventDefault();
+            document.execCommand("formatBlock", false, "BLOCKQUOTE");
+            getActiveEditor().focus();
+        });
+
+        // --- Table ---
+        document.getElementById("table-btn").addEventListener("click", (e) => {
+            e.preventDefault();
+            showTableDialog();
+        });
+
+        function showTableDialog() {
+            closAllDialogs();
+            const dialog = document.createElement("div");
+            dialog.className = "toolbar-dialog";
+            dialog.id = "table-dialog";
+            dialog.innerHTML = `
+                <div style="display:flex;gap:8px;margin-bottom:8px">
+                    <div style="flex:1">
+                        <label style="font-size:0.75rem;color:var(--text-muted)">Rows</label>
+                        <input type="number" id="table-rows" value="3" min="1" max="20" style="margin-bottom:0">
+                    </div>
+                    <div style="flex:1">
+                        <label style="font-size:0.75rem;color:var(--text-muted)">Columns</label>
+                        <input type="number" id="table-cols" value="3" min="1" max="10" style="margin-bottom:0">
+                    </div>
+                </div>
+                <div class="dialog-actions">
+                    <button class="btn-cancel" id="table-cancel">Cancel</button>
+                    <button class="btn-apply" id="table-apply">Insert</button>
+                </div>
+            `;
+            document.getElementById("editor-toolbar").appendChild(dialog);
+            document.getElementById("table-rows").focus();
+
+            document.getElementById("table-cancel").addEventListener("click", () => dialog.remove());
+            document.getElementById("table-apply").addEventListener("click", () => {
+                const rows = parseInt(document.getElementById("table-rows").value) || 3;
+                const cols = parseInt(document.getElementById("table-cols").value) || 3;
+                dialog.remove();
+                insertTable(rows, cols);
+            });
+        }
+
+        function insertTable(rows, cols) {
+            const editor = getActiveEditor();
+            const table = document.createElement("table");
+            // Header row
+            const thead = document.createElement("thead");
+            const headerRow = document.createElement("tr");
+            for (let c = 0; c < cols; c++) {
+                const th = document.createElement("th");
+                th.textContent = "Header " + (c + 1);
+                headerRow.appendChild(th);
+            }
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            // Body rows
+            const tbody = document.createElement("tbody");
+            for (let r = 0; r < rows - 1; r++) {
+                const tr = document.createElement("tr");
+                for (let c = 0; c < cols; c++) {
+                    const td = document.createElement("td");
+                    td.innerHTML = "&nbsp;";
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr);
+            }
+            table.appendChild(tbody);
+            insertNodeAtCursor(editor, table);
+            // Add paragraph after table
+            const p = document.createElement("p");
+            p.innerHTML = "<br>";
+            table.parentNode.insertBefore(p, table.nextSibling);
+            editor.focus();
+        }
+
+        // --- Image Upload ---
+        const imageInput = document.getElementById("image-input");
+        document.getElementById("image-btn").addEventListener("click", () => {
+            if (!currentFileId) { showError("Open or create a note first"); return; }
+            imageInput.click();
+        });
+        imageInput.addEventListener("change", async () => {
+            if (!imageInput.files.length || !currentFileId) return;
+            const file = imageInput.files[0];
+            imageInput.value = "";
+            try {
+                const formData = new FormData();
+                formData.append("file", file);
+                const res = await fetch(`/library/${currentFileId}/attachments`, { method: "POST", body: formData });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Upload failed");
+                // Insert image into editor
+                const editor = getActiveEditor();
+                const img = document.createElement("img");
+                img.src = `/attachments/${data.id}`;
+                img.alt = data.filename;
+                img.style.maxWidth = "100%";
+                img.style.borderRadius = "4px";
+                img.style.margin = "8px 0";
+                insertNodeAtCursor(editor, img);
+                loadAttachments();
+            } catch (e) { showError(e.message); }
+        });
+
+        // --- File Attachment ---
+        const attachInput = document.getElementById("attach-input");
+        document.getElementById("attach-btn").addEventListener("click", () => {
+            if (!currentFileId) { showError("Open or create a note first"); return; }
+            attachInput.click();
+        });
+        attachInput.addEventListener("change", async () => {
+            if (!attachInput.files.length || !currentFileId) return;
+            const file = attachInput.files[0];
+            attachInput.value = "";
+            try {
+                const formData = new FormData();
+                formData.append("file", file);
+                const res = await fetch(`/library/${currentFileId}/attachments`, { method: "POST", body: formData });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Upload failed");
+                loadAttachments();
+            } catch (e) { showError(e.message); }
+        });
+
+        // --- Load Attachments for current note ---
+        async function loadAttachments() {
+            const bar = document.getElementById("attachments-bar");
+            const list = document.getElementById("att-list");
+            if (!currentFileId) { bar.style.display = "none"; return; }
+            try {
+                const res = await fetch(`/library/${currentFileId}/attachments`);
+                const atts = await res.json();
+                if (atts.length === 0) { bar.style.display = "none"; return; }
+                bar.style.display = "block";
+                list.innerHTML = atts.map(a =>
+                    `<a class="att-item" href="/attachments/${escapeHtml(a.id)}" target="_blank" title="${escapeHtml(a.filename)} (${formatFileSize(a.size)})">${escapeHtml(a.filename)}</a>`
+                ).join("");
+            } catch (_) { bar.style.display = "none"; }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + " B";
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+            return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+        }
+
+        // --- Cursor insertion helper ---
+        function insertNodeAtCursor(editor, node) {
+            editor.focus();
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                // Make sure we're inside the editor
+                if (editor.contains(range.commonAncestorContainer)) {
+                    range.deleteContents();
+                    range.insertNode(node);
+                    range.setStartAfter(node);
+                    range.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                    return;
+                }
+            }
+            // Fallback: append to editor
+            editor.appendChild(node);
+        }
+
+        // --- Keyboard Shortcuts ---
+        document.addEventListener("keydown", (e) => {
+            // Only handle shortcuts when an editor is focused or active
+            if (!currentFileId) return;
+            const ctrl = e.ctrlKey || e.metaKey;
+            if (!ctrl) return;
+
+            if (e.key === "z" && !e.shiftKey) {
+                // Ctrl+Z: Undo (browser default, but ensure it works)
+                return;
+            }
+            if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
+                // Ctrl+Y or Ctrl+Shift+Z: Redo (browser default)
+                return;
+            }
+            if (e.key === "1") { e.preventDefault(); document.execCommand("formatBlock", false, "H1"); }
+            else if (e.key === "2") { e.preventDefault(); document.execCommand("formatBlock", false, "H2"); }
+            else if (e.key === "3") { e.preventDefault(); document.execCommand("formatBlock", false, "H3"); }
+            else if (e.key === "k" && !e.shiftKey) { e.preventDefault(); showLinkDialog(); }
+            else if (e.key === "K" || (e.key === "k" && e.shiftKey)) { e.preventDefault(); showNoteLinkDialog(); }
+            else if (e.shiftKey && e.key === "S") { e.preventDefault(); document.execCommand("strikeThrough"); }
+            else if (e.shiftKey && (e.key === "U" || e.key === "u") && ctrl) {
+                // Ctrl+Shift+U: Bullet list
+                e.preventDefault(); document.execCommand("insertUnorderedList");
+            }
+            else if (e.shiftKey && (e.key === "O" || e.key === "o")) {
+                e.preventDefault(); document.execCommand("insertOrderedList");
+            }
+            else if (e.shiftKey && (e.key === "C" || e.key === "c") && ctrl) {
+                // Ctrl+Shift+C: Checklist - but don't intercept regular Ctrl+C (copy)
+                e.preventDefault(); document.getElementById("checklist-btn").click();
+            }
+            else if (e.shiftKey && (e.key === "Q" || e.key === "q")) {
+                e.preventDefault(); document.execCommand("formatBlock", false, "BLOCKQUOTE");
+            }
+        });
+
         // --- Tabs ---
         tabs.forEach(tab => {
             tab.addEventListener("click", () => {
@@ -985,36 +1662,7 @@
                 nbStarredCount.textContent = data.starred || 0;
                 nbTrashCount.textContent = data.trash_count || 0;
 
-                nbItems.innerHTML = "";
-                if (allNotebooks.length === 0) {
-                    nbItems.innerHTML = '<div style="padding:6px 14px;font-size:0.75rem;color:var(--text-faint)">No notebooks yet</div>';
-                }
-                allNotebooks.forEach(nb => {
-                    const div = document.createElement("div");
-                    div.className = "nb-item" + (currentNotebook === nb.name ? " active" : "");
-                    div.dataset.nb = nb.name;
-                    div.innerHTML = `
-                        <span class="nb-name">${escapeHtml(nb.name)}</span>
-                        <span class="nb-count">${nb.note_count}</span>
-                        <button class="nb-delete" title="Delete notebook">&times;</button>
-                    `;
-                    div.addEventListener("click", (e) => {
-                        if (e.target.classList.contains("nb-delete")) return;
-                        selectNotebook(nb.name);
-                    });
-                    div.querySelector(".nb-delete").addEventListener("click", async (e) => {
-                        e.stopPropagation();
-                        if (!confirm(`Delete notebook "${nb.name}"? Notes will be moved out.`)) return;
-                        await fetch("/notebooks/delete", {
-                            method: "POST",
-                            headers: {"Content-Type": "application/json"},
-                            body: JSON.stringify({name: nb.name})
-                        });
-                        if (currentNotebook === nb.name) selectNotebook(null);
-                        else { loadNotebooks(); loadNoteList(); }
-                    });
-                    nbItems.appendChild(div);
-                });
+                renderNotebooksWithStacks(allNotebooks);
 
                 // Update notebook select in metadata
                 updateNotebookSelect();
@@ -1045,6 +1693,7 @@
         function selectView(view, notebook) {
             currentView = view;
             currentNotebook = notebook;
+            currentTagFilter = null;
 
             // Title
             if (view === "recent") notesTitle.textContent = "Recent Notes";
@@ -1104,6 +1753,7 @@
             const params = new URLSearchParams();
             if (currentView) params.set("view", currentView);
             if (currentNotebook) params.set("notebook", currentNotebook);
+            if (currentTagFilter) params.set("tag", currentTagFilter);
             if (!currentView || (currentView !== "trash" && currentView !== "recent")) {
                 params.set("sort", sortSelect.value);
             }
@@ -1145,6 +1795,7 @@
 
                 li.innerHTML = `
                     <div style="display:flex;align-items:center;gap:4px">
+                        <input type="checkbox" class="bulk-checkbox" data-bulk-id="${f.id}">
                         ${!isTrash ? '<button class="' + starClass + '" data-star-id="' + f.id + '" title="Star">' + starIcon + '</button>' : ''}
                         <div class="note-card-title" style="flex:1">${escapeHtml(f.original_name)}</div>
                     </div>
@@ -1159,8 +1810,39 @@
                     ${tagsHtml}
                 `;
 
+                // Bulk checkbox
+                const bulkCb = li.querySelector(".bulk-checkbox");
+                bulkCb.addEventListener("change", (e) => {
+                    e.stopPropagation();
+                    if (bulkCb.checked) selectedIds.add(f.id);
+                    else selectedIds.delete(f.id);
+                    updateBulkCount();
+                });
+                bulkCb.addEventListener("click", (e) => e.stopPropagation());
+
+                // Long press to enter bulk mode
+                li.addEventListener("mousedown", () => {
+                    longPressTimer = setTimeout(() => {
+                        if (!bulkMode) {
+                            toggleBulkMode(true);
+                            selectedIds.add(f.id);
+                            bulkCb.checked = true;
+                            updateBulkCount();
+                        }
+                    }, 600);
+                });
+                li.addEventListener("mouseup", () => clearTimeout(longPressTimer));
+                li.addEventListener("mouseleave", () => clearTimeout(longPressTimer));
+
                 li.addEventListener("click", (e) => {
-                    if (e.target.closest(".note-delete") || e.target.closest(".note-star") || e.target.closest(".note-restore")) return;
+                    if (e.target.closest(".note-delete") || e.target.closest(".note-star") || e.target.closest(".note-restore") || e.target.closest(".bulk-checkbox")) return;
+                    if (bulkMode) {
+                        bulkCb.checked = !bulkCb.checked;
+                        if (bulkCb.checked) selectedIds.add(f.id);
+                        else selectedIds.delete(f.id);
+                        updateBulkCount();
+                        return;
+                    }
                     openFile(f.id);
                 });
 
@@ -1538,6 +2220,17 @@
                 transcribeBtn.style.display = "inline-block";
             }
 
+            // Tags editor
+            currentNoteTags = [];
+            if (data.tags) {
+                try { currentNoteTags = JSON.parse(data.tags); } catch (_) {}
+            }
+            tagEditor.style.display = "flex";
+            renderTagPills();
+
+            // Load attachments
+            loadAttachments();
+
             // Highlight in note list
             document.querySelectorAll(".note-card").forEach(el => el.classList.remove("active"));
             document.querySelectorAll(".note-card").forEach(el => {
@@ -1569,6 +2262,12 @@
             tabs.forEach(t => t.style.display = "");
             singleLangLabel.style.display = "none";
             topicmapTooltip.style.display = "none";
+            document.getElementById("attachments-bar").style.display = "none";
+            document.getElementById("att-list").innerHTML = "";
+            tagEditor.style.display = "none";
+            currentNoteTags = [];
+            tagPills.innerHTML = "";
+            closAllDialogs();
             updateTopicMapButton();
             audioPlayer.pause();
             audioPlayer.src = "";
@@ -1844,10 +2543,418 @@
         themeSelect.addEventListener("change", () => applyTheme(themeSelect.value));
         applyTheme(localStorage.getItem("stt-theme") || "light");
 
+        // --- Tag Management ---
+        let currentTagFilter = null;
+        let allTags = [];
+
+        async function loadTags() {
+            try {
+                const res = await fetch("/tags");
+                allTags = await res.json();
+                const container = document.getElementById("nb-tags");
+                if (allTags.length === 0) {
+                    container.innerHTML = '<div style="padding:4px 14px;font-size:0.72rem;color:var(--text-faint)">No tags</div>';
+                    return;
+                }
+                // Group by prefix (nested tags: "parent/child")
+                const groups = {};
+                const ungrouped = [];
+                allTags.forEach(t => {
+                    const parts = t.name.split("/");
+                    if (parts.length > 1) {
+                        const parent = parts[0];
+                        if (!groups[parent]) groups[parent] = [];
+                        groups[parent].push(t);
+                    } else {
+                        ungrouped.push(t);
+                    }
+                });
+
+                container.innerHTML = "";
+                // Render ungrouped tags
+                ungrouped.forEach(t => container.appendChild(createTagItem(t)));
+                // Render grouped tags
+                Object.keys(groups).sort().forEach(parent => {
+                    const groupLabel = document.createElement("div");
+                    groupLabel.className = "nb-tag-item";
+                    groupLabel.style.fontWeight = "600";
+                    groupLabel.style.fontSize = "0.72rem";
+                    groupLabel.style.color = "var(--text-muted)";
+                    groupLabel.innerHTML = `<span class="tag-name">${escapeHtml(parent)}/</span><span class="nb-count">${groups[parent].reduce((s, t) => s + t.count, 0)}</span>`;
+                    groupLabel.addEventListener("click", () => {
+                        // Filter by parent prefix
+                        currentTagFilter = null;
+                        // Show all notes with any tag starting with parent/
+                        filterByTagGroup(parent);
+                    });
+                    container.appendChild(groupLabel);
+                    groups[parent].forEach(t => {
+                        const item = createTagItem(t);
+                        item.style.paddingLeft = "28px";
+                        container.appendChild(item);
+                    });
+                });
+            } catch (e) { console.warn("Failed to load tags:", e); }
+        }
+
+        function createTagItem(tag) {
+            const div = document.createElement("div");
+            div.className = "nb-tag-item" + (currentTagFilter === tag.name ? " active" : "");
+            div.innerHTML = `
+                <span class="tag-name">${escapeHtml(tag.name)}</span>
+                <span class="nb-count">${tag.count}</span>
+                <span class="tag-actions">
+                    <button class="tag-action-btn tag-rename" title="Rename">&#9998;</button>
+                </span>
+            `;
+            div.addEventListener("click", (e) => {
+                if (e.target.closest(".tag-action-btn")) return;
+                currentTagFilter = tag.name;
+                currentView = null;
+                currentNotebook = null;
+                notesTitle.textContent = "Tag: " + tag.name;
+                loadNoteList();
+                loadTags();
+            });
+            div.querySelector(".tag-rename").addEventListener("click", async (e) => {
+                e.stopPropagation();
+                const newName = prompt(`Rename tag "${tag.name}" to:`, tag.name);
+                if (!newName || newName.trim() === tag.name) return;
+                await fetch("/tags/rename", {
+                    method: "PUT",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({old: tag.name, new: newName.trim()})
+                });
+                if (currentTagFilter === tag.name) currentTagFilter = newName.trim();
+                loadTags();
+                loadNoteList();
+            });
+            return div;
+        }
+
+        function filterByTagGroup(prefix) {
+            // Custom filter: show notes with any tag starting with prefix/
+            currentTagFilter = prefix + "/";
+            currentView = null;
+            currentNotebook = null;
+            notesTitle.textContent = "Tags: " + prefix + "/*";
+            loadNoteList();
+            loadTags();
+        }
+
+        // Manage tags button — shows merge dialog
+        document.getElementById("manage-tags-btn").addEventListener("click", () => {
+            if (allTags.length < 2) { showError("Need at least 2 tags to manage"); return; }
+            const tagNames = allTags.map(t => t.name);
+            const sources = prompt("Tags to merge (comma-separated):\n\nAvailable: " + tagNames.join(", "));
+            if (!sources) return;
+            const target = prompt("Merge into tag name:");
+            if (!target) return;
+            const sourceList = sources.split(",").map(s => s.trim()).filter(Boolean);
+            fetch("/tags/merge", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({sources: sourceList, target: target.trim()})
+            }).then(() => { loadTags(); loadNoteList(); });
+        });
+
+        // --- Tag Editor (note metadata) ---
+        const tagEditor = document.getElementById("tag-editor");
+        const tagPills = document.getElementById("tag-pills");
+        const tagAddInput = document.getElementById("tag-add-input");
+        let currentNoteTags = [];
+
+        function renderTagPills() {
+            tagPills.innerHTML = "";
+            currentNoteTags.forEach(t => {
+                const pill = document.createElement("span");
+                pill.className = "tag-pill";
+                pill.innerHTML = `${escapeHtml(t)}<button class="tag-remove" title="Remove">&times;</button>`;
+                pill.querySelector(".tag-remove").addEventListener("click", () => {
+                    currentNoteTags = currentNoteTags.filter(x => x !== t);
+                    saveNoteTags();
+                    renderTagPills();
+                });
+                tagPills.appendChild(pill);
+            });
+        }
+
+        tagAddInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                const val = tagAddInput.value.trim();
+                if (val && !currentNoteTags.includes(val)) {
+                    currentNoteTags.push(val);
+                    saveNoteTags();
+                    renderTagPills();
+                }
+                tagAddInput.value = "";
+            }
+        });
+
+        async function saveNoteTags() {
+            if (!currentFileId) return;
+            await fetch(`/library/${currentFileId}/tags`, {
+                method: "PUT",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({tags: currentNoteTags})
+            });
+            loadTags();
+            loadNoteList();
+        }
+
+        // --- Notebook Stacks ---
+        function renderNotebooksWithStacks(notebooks) {
+            const nbItemsEl = document.getElementById("nb-items");
+            nbItemsEl.innerHTML = "";
+
+            // Group by stack
+            const stacks = {};
+            const unstacked = [];
+            notebooks.forEach(nb => {
+                if (nb.stack) {
+                    if (!stacks[nb.stack]) stacks[nb.stack] = [];
+                    stacks[nb.stack].push(nb);
+                } else {
+                    unstacked.push(nb);
+                }
+            });
+
+            // Render unstacked notebooks
+            unstacked.forEach(nb => nbItemsEl.appendChild(createNotebookItem(nb)));
+
+            // Render stacks
+            Object.keys(stacks).sort().forEach(stackName => {
+                const stackHeader = document.createElement("div");
+                stackHeader.className = "nb-stack";
+                const collapsed = localStorage.getItem("stack-" + stackName) === "1";
+                if (collapsed) stackHeader.classList.add("collapsed");
+                stackHeader.innerHTML = `<span class="nb-stack-arrow">&#9660;</span> ${escapeHtml(stackName)}`;
+                stackHeader.addEventListener("click", () => {
+                    stackHeader.classList.toggle("collapsed");
+                    localStorage.setItem("stack-" + stackName, stackHeader.classList.contains("collapsed") ? "1" : "0");
+                });
+                nbItemsEl.appendChild(stackHeader);
+
+                const stackItems = document.createElement("div");
+                stackItems.className = "nb-stack-items";
+                stacks[stackName].forEach(nb => stackItems.appendChild(createNotebookItem(nb)));
+                nbItemsEl.appendChild(stackItems);
+            });
+
+            if (notebooks.length === 0) {
+                nbItemsEl.innerHTML = '<div style="padding:6px 14px;font-size:0.75rem;color:var(--text-faint)">No notebooks yet</div>';
+            }
+        }
+
+        function createNotebookItem(nb) {
+            const div = document.createElement("div");
+            div.className = "nb-item" + (currentNotebook === nb.name ? " active" : "");
+            div.dataset.nb = nb.name;
+            div.innerHTML = `
+                <span class="nb-name">${escapeHtml(nb.name)}</span>
+                <span class="nb-count">${nb.note_count}</span>
+                <button class="nb-delete" title="Delete notebook">&times;</button>
+            `;
+            div.addEventListener("click", (e) => {
+                if (e.target.classList.contains("nb-delete")) return;
+                currentTagFilter = null;
+                selectNotebook(nb.name);
+            });
+            // Right-click for stack management
+            div.addEventListener("contextmenu", (e) => {
+                e.preventDefault();
+                const stack = prompt(`Set stack for "${nb.name}" (leave empty to remove from stack):`, nb.stack || "");
+                if (stack === null) return;
+                fetch(`/notebooks/${encodeURIComponent(nb.name)}/stack`, {
+                    method: "PUT",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({stack: stack.trim()})
+                }).then(() => { loadNotebooks(); });
+            });
+            div.querySelector(".nb-delete").addEventListener("click", async (e) => {
+                e.stopPropagation();
+                if (!confirm(`Delete notebook "${nb.name}"? Notes will be moved to My Notebook.`)) return;
+                await fetch("/notebooks/delete", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({name: nb.name})
+                });
+                if (currentNotebook === nb.name) selectNotebook(null);
+                else { loadNotebooks(); loadNoteList(); }
+            });
+            return div;
+        }
+
+        // --- Bulk Actions ---
+        let bulkMode = false;
+        let selectedIds = new Set();
+        const bulkBar = document.getElementById("bulk-bar");
+        const bulkCountNum = document.getElementById("bulk-count-num");
+        const bulkSelectAll = document.getElementById("bulk-select-all");
+        const notesPanel = document.getElementById("notes-panel");
+
+        function toggleBulkMode(on) {
+            bulkMode = on;
+            if (!on) selectedIds.clear();
+            notesPanel.classList.toggle("bulk-mode", on);
+            bulkBar.classList.toggle("visible", on);
+            updateBulkCount();
+        }
+
+        function updateBulkCount() {
+            bulkCountNum.textContent = selectedIds.size;
+            bulkSelectAll.checked = false;
+        }
+
+        // Long-press on a note card activates bulk mode
+        let longPressTimer = null;
+
+        document.getElementById("bulk-cancel-btn").addEventListener("click", () => toggleBulkMode(false));
+
+        bulkSelectAll.addEventListener("change", () => {
+            const checkboxes = noteList.querySelectorAll(".bulk-checkbox");
+            checkboxes.forEach(cb => {
+                cb.checked = bulkSelectAll.checked;
+                const id = cb.dataset.bulkId;
+                if (bulkSelectAll.checked) selectedIds.add(id);
+                else selectedIds.delete(id);
+            });
+            updateBulkCount();
+        });
+
+        document.getElementById("bulk-star-btn").addEventListener("click", async () => {
+            if (selectedIds.size === 0) return;
+            await fetch("/library/bulk", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ids: [...selectedIds], action: "star"})
+            });
+            toggleBulkMode(false);
+            loadNoteList();
+            loadNotebooks();
+        });
+
+        document.getElementById("bulk-trash-btn").addEventListener("click", async () => {
+            if (selectedIds.size === 0) return;
+            if (!confirm(`Move ${selectedIds.size} note(s) to trash?`)) return;
+            await fetch("/library/bulk", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ids: [...selectedIds], action: "trash"})
+            });
+            toggleBulkMode(false);
+            loadNoteList();
+            loadNotebooks();
+        });
+
+        document.getElementById("bulk-move-btn").addEventListener("click", async () => {
+            if (selectedIds.size === 0) return;
+            const nbNames = allNotebooks.map(n => n.name).join(", ");
+            const nb = prompt("Move to notebook:\n\n" + nbNames);
+            if (!nb) return;
+            await fetch("/library/bulk", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ids: [...selectedIds], action: "move", notebook: nb.trim()})
+            });
+            toggleBulkMode(false);
+            loadNoteList();
+            loadNotebooks();
+        });
+
+        document.getElementById("bulk-tag-btn").addEventListener("click", async () => {
+            if (selectedIds.size === 0) return;
+            const tag = prompt("Add tag to selected notes:");
+            if (!tag) return;
+            await fetch("/library/bulk", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ids: [...selectedIds], action: "tag", tag: tag.trim()})
+            });
+            toggleBulkMode(false);
+            loadNoteList();
+            loadTags();
+        });
+
+        // --- Saved Searches ---
+        let savedSearches = [];
+
+        async function loadSavedSearches() {
+            try {
+                const res = await fetch("/saved-searches");
+                savedSearches = await res.json();
+                const container = document.getElementById("saved-searches-list");
+                if (savedSearches.length === 0) {
+                    container.innerHTML = '<div style="padding:4px 14px;font-size:0.72rem;color:var(--text-faint)">No saved searches</div>';
+                    return;
+                }
+                container.innerHTML = "";
+                savedSearches.forEach(ss => {
+                    const div = document.createElement("div");
+                    div.className = "saved-search-item";
+                    div.innerHTML = `
+                        <span class="ss-name">${escapeHtml(ss.name)}</span>
+                        <button class="ss-delete" title="Delete">&times;</button>
+                    `;
+                    div.addEventListener("click", (e) => {
+                        if (e.target.closest(".ss-delete")) return;
+                        // Apply saved search
+                        searchInput.value = ss.query || "";
+                        const filters = typeof ss.filters === "string" ? JSON.parse(ss.filters) : (ss.filters || {});
+                        if (filters.notebook) {
+                            currentNotebook = filters.notebook;
+                            currentView = null;
+                        } else if (filters.tag) {
+                            currentTagFilter = filters.tag;
+                            currentView = null;
+                            currentNotebook = null;
+                        } else {
+                            currentView = null;
+                            currentNotebook = null;
+                            currentTagFilter = null;
+                        }
+                        notesTitle.textContent = ss.name;
+                        loadNoteList();
+                    });
+                    div.querySelector(".ss-delete").addEventListener("click", async (e) => {
+                        e.stopPropagation();
+                        await fetch(`/saved-searches/${ss.id}`, { method: "DELETE" });
+                        loadSavedSearches();
+                    });
+                    container.appendChild(div);
+                });
+            } catch (e) { console.warn("Failed to load saved searches:", e); }
+        }
+
+        // Save search button
+        const saveSearchBtn = document.getElementById("save-search-btn");
+        searchInput.addEventListener("input", () => {
+            saveSearchBtn.style.display = searchInput.value.trim() ? "block" : "none";
+        });
+
+        saveSearchBtn.addEventListener("click", async () => {
+            const query = searchInput.value.trim();
+            if (!query) return;
+            const name = prompt("Name for this search:", query);
+            if (!name) return;
+            const filters = {};
+            if (currentNotebook) filters.notebook = currentNotebook;
+            if (currentTagFilter) filters.tag = currentTagFilter;
+            await fetch("/saved-searches", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({name: name.trim(), query, filters})
+            });
+            loadSavedSearches();
+        });
+
         // --- Init ---
         loadNotebooks();
         loadNoteList();
         loadTopicMap();
+        loadTags();
+        loadSavedSearches();
     </script>
 </body>
 </html>
