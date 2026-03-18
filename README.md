@@ -7,7 +7,11 @@ Sememes is a personal knowledge tool that records voice notes, transcribes with 
 ### Note Management
 - **Three-panel layout** — Notebooks sidebar, note list with search, and full editor (inspired by Evernote)
 - **Notebooks** — Organize notes into notebooks; every note belongs to a notebook ("My Notebook" by default)
-- **Create, edit, rename, and delete** notes with auto-save (2-second debounce)
+- **Create, edit, rename, duplicate, and delete** notes with auto-save (2-second debounce)
+- **Starred / pinned notes** — Star important notes; they appear first in the list and have a dedicated "Starred" view
+- **Trash / restore** — Deleted notes go to trash first; restore or permanently delete from the trash view; "Empty Trash" clears all
+- **Recent Notes** — Quick-access view showing the 20 most recently updated notes
+- **Sorting** — Sort notes by created date, updated date, or title (ascending/descending)
 - **Search** — Real-time search across note titles and content
 - **Rich text editor** — Formatting toolbar with Bold, Italic, Underline, Strikethrough, Headings (H1–H3), Bullet/Numbered lists, and a whitespace cleanup tool
 

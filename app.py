@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import uuid
@@ -67,6 +68,10 @@ def init_db():
         conn.execute("ALTER TABLE files ADD COLUMN tags TEXT")
     if "notebook" not in cols:
         conn.execute("ALTER TABLE files ADD COLUMN notebook TEXT")
+    if "starred" not in cols:
+        conn.execute("ALTER TABLE files ADD COLUMN starred INTEGER DEFAULT 0")
+    if "trashed_at" not in cols:
+        conn.execute("ALTER TABLE files ADD COLUMN trashed_at TEXT")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS notebooks (
             name TEXT PRIMARY KEY,
@@ -314,16 +319,25 @@ def library_list():
     conn = get_db()
     notebook_filter = request.args.get("notebook")
     search_q = request.args.get("q")
+    sort_by = request.args.get("sort", "created_desc")
+    view = request.args.get("view")  # "trash", "starred", "recent"
 
-    query = ("SELECT id, original_name, duration, created_at, tags, notebook, "
+    query = ("SELECT id, original_name, duration, created_at, updated_at, tags, notebook, starred, trashed_at, "
              "COALESCE(transcription_en, transcription, '') as raw_text, "
              "transcription IS NOT NULL as has_transcription FROM files")
     params = []
     conditions = []
 
-    if notebook_filter:
-        conditions.append("notebook = ?")
-        params.append(notebook_filter)
+    if view == "trash":
+        conditions.append("trashed_at IS NOT NULL")
+    else:
+        conditions.append("trashed_at IS NULL")
+        if view == "starred":
+            conditions.append("starred = 1")
+        if notebook_filter:
+            conditions.append("notebook = ?")
+            params.append(notebook_filter)
+
     if search_q:
         conditions.append("(original_name LIKE ? OR transcription LIKE ? OR transcription_en LIKE ?)")
         s = f"%{search_q}%"
@@ -331,7 +345,23 @@ def library_list():
 
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
-    query += " ORDER BY created_at DESC"
+
+    # Sorting — starred notes first, then by chosen sort
+    sort_map = {
+        "created_desc": "created_at DESC",
+        "created_asc": "created_at ASC",
+        "updated_desc": "COALESCE(updated_at, created_at) DESC",
+        "updated_asc": "COALESCE(updated_at, created_at) ASC",
+        "title_asc": "original_name COLLATE NOCASE ASC",
+        "title_desc": "original_name COLLATE NOCASE DESC",
+    }
+    order = sort_map.get(sort_by, "created_at DESC")
+    if view == "trash":
+        query += f" ORDER BY trashed_at DESC"
+    elif view == "recent":
+        query += f" ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 20"
+    else:
+        query += f" ORDER BY starred DESC, {order}"
 
     rows = conn.execute(query, params).fetchall()
     conn.close()
@@ -350,16 +380,19 @@ def list_notebooks():
     conn = get_db()
     nb_rows = conn.execute(
         "SELECT n.name, COALESCE(c.cnt, 0) as note_count FROM notebooks n "
-        "LEFT JOIN (SELECT notebook, COUNT(*) as cnt FROM files WHERE notebook IS NOT NULL "
-        "AND notebook != '' GROUP BY notebook) c ON c.notebook = n.name "
+        "LEFT JOIN (SELECT notebook, COUNT(*) as cnt FROM files "
+        "WHERE notebook IS NOT NULL AND notebook != '' AND trashed_at IS NULL "
+        "GROUP BY notebook) c ON c.notebook = n.name "
         "ORDER BY n.name"
     ).fetchall()
-    # Also include notebooks from files that aren't in notebooks table
     file_nbs = conn.execute(
         "SELECT notebook as name, COUNT(*) as note_count FROM files "
-        "WHERE notebook IS NOT NULL AND notebook != '' GROUP BY notebook ORDER BY notebook"
+        "WHERE notebook IS NOT NULL AND notebook != '' AND trashed_at IS NULL "
+        "GROUP BY notebook ORDER BY notebook"
     ).fetchall()
-    total = conn.execute("SELECT COUNT(*) as c FROM files").fetchone()["c"]
+    total = conn.execute("SELECT COUNT(*) as c FROM files WHERE trashed_at IS NULL").fetchone()["c"]
+    starred = conn.execute("SELECT COUNT(*) as c FROM files WHERE starred = 1 AND trashed_at IS NULL").fetchone()["c"]
+    trash_count = conn.execute("SELECT COUNT(*) as c FROM files WHERE trashed_at IS NOT NULL").fetchone()["c"]
     conn.close()
 
     known = {r["name"] for r in nb_rows}
@@ -368,7 +401,7 @@ def list_notebooks():
         if r["name"] not in known:
             notebooks.append(dict(r))
     notebooks.sort(key=lambda x: x["name"])
-    return jsonify({"total": total, "notebooks": notebooks})
+    return jsonify({"total": total, "starred": starred, "trash_count": trash_count, "notebooks": notebooks})
 
 
 @app.route("/notebooks", methods=["POST"])
@@ -444,6 +477,7 @@ def library_update_text(file_id):
         conn.execute("UPDATE files SET transcription = ? WHERE id = ?", (data["text"], file_id))
     if "text_en" in data:
         conn.execute("UPDATE files SET transcription_en = ? WHERE id = ?", (data["text_en"], file_id))
+    conn.execute("UPDATE files SET updated_at = ? WHERE id = ?", (datetime.now().isoformat(), file_id))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -473,6 +507,85 @@ def update_note_notebook(file_id):
     return jsonify({"ok": True})
 
 
+@app.route("/library/<file_id>/star", methods=["PUT"])
+def toggle_star(file_id):
+    conn = get_db()
+    row = conn.execute("SELECT starred FROM files WHERE id = ?", (file_id,)).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"error": "File not found"}), 404
+    new_val = 0 if row["starred"] else 1
+    conn.execute("UPDATE files SET starred = ? WHERE id = ?", (new_val, file_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "starred": new_val})
+
+
+@app.route("/library/<file_id>/duplicate", methods=["POST"])
+def duplicate_note(file_id):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM files WHERE id = ?", (file_id,)).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"error": "File not found"}), 404
+
+    new_id = str(uuid.uuid4())
+    new_name = row["original_name"] + " (copy)"
+    now = datetime.now().isoformat()
+
+    # Copy MP3 file if audio note
+    new_mp3 = None
+    if row["mp3_path"]:
+        new_mp3 = new_id + ".mp3"
+        src = os.path.join(LIBRARY_FOLDER, row["mp3_path"])
+        dst = os.path.join(LIBRARY_FOLDER, new_mp3)
+        if os.path.exists(src):
+            shutil.copy2(src, dst)
+
+    conn.execute(
+        "INSERT INTO files (id, original_name, mp3_path, duration, transcription, transcription_en, "
+        "created_at, updated_at, tags, notebook, starred) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
+        (new_id, new_name, new_mp3, row["duration"], row["transcription"], row["transcription_en"],
+         now, now, row["tags"], row["notebook"])
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"file_id": new_id, "original_name": new_name})
+
+
+@app.route("/library/<file_id>/trash", methods=["PUT"])
+def trash_note(file_id):
+    conn = get_db()
+    conn.execute("UPDATE files SET trashed_at = ? WHERE id = ?", (datetime.now().isoformat(), file_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/library/<file_id>/restore", methods=["PUT"])
+def restore_note(file_id):
+    conn = get_db()
+    conn.execute("UPDATE files SET trashed_at = NULL WHERE id = ?", (file_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/library/empty-trash", methods=["POST"])
+def empty_trash():
+    conn = get_db()
+    trashed = conn.execute("SELECT id, mp3_path FROM files WHERE trashed_at IS NOT NULL").fetchall()
+    for row in trashed:
+        if row["mp3_path"]:
+            mp3_full = os.path.join(LIBRARY_FOLDER, row["mp3_path"])
+            if os.path.exists(mp3_full):
+                os.remove(mp3_full)
+    conn.execute("DELETE FROM files WHERE trashed_at IS NOT NULL")
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
 @app.route("/library/<file_id>/translate", methods=["POST"])
 def library_translate(file_id):
     """Re-translate a file's transcription to English."""
@@ -493,18 +606,24 @@ def library_translate(file_id):
 
 @app.route("/library/<file_id>", methods=["DELETE"])
 def library_delete(file_id):
+    """Permanent delete (used from trash) or move to trash."""
     conn = get_db()
-    row = conn.execute("SELECT mp3_path FROM files WHERE id = ?", (file_id,)).fetchone()
+    row = conn.execute("SELECT mp3_path, trashed_at FROM files WHERE id = ?", (file_id,)).fetchone()
     if not row:
         conn.close()
         return jsonify({"error": "File not found"}), 404
 
-    if row["mp3_path"]:
-        mp3_full = os.path.join(LIBRARY_FOLDER, row["mp3_path"])
-        if os.path.exists(mp3_full):
-            os.remove(mp3_full)
+    if row["trashed_at"]:
+        # Already in trash — permanent delete
+        if row["mp3_path"]:
+            mp3_full = os.path.join(LIBRARY_FOLDER, row["mp3_path"])
+            if os.path.exists(mp3_full):
+                os.remove(mp3_full)
+        conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
+    else:
+        # Move to trash
+        conn.execute("UPDATE files SET trashed_at = ? WHERE id = ?", (datetime.now().isoformat(), file_id))
 
-    conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})

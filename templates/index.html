@@ -614,6 +614,43 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* Star */
+        .note-star {
+            background: none; border: none; cursor: pointer; font-size: 0.9rem;
+            color: var(--text-faint); padding: 0 2px; line-height: 1; transition: color 0.1s;
+        }
+        .note-star:hover, .toolbar-btn.starred:hover { color: #e8a020; }
+        .note-star.starred, .toolbar-btn.starred { color: #e8a020; }
+
+        /* Sort bar */
+        #sort-bar {
+            padding: 0 14px 6px; display: flex; align-items: center; gap: 6px;
+        }
+        #sort-select {
+            flex: 1; padding: 3px 6px; border: 1px solid var(--border); border-radius: 4px;
+            background: var(--bg-surface); color: var(--text-secondary); font-size: 0.72rem;
+            cursor: pointer;
+        }
+
+        /* Trash banner */
+        .trash-banner {
+            padding: 8px 14px; background: var(--error-bg); color: var(--error-text);
+            font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--error-border);
+        }
+        .trash-banner button {
+            background: none; border: 1px solid var(--error-text); border-radius: 4px;
+            color: var(--error-text); cursor: pointer; font-size: 0.72rem; padding: 2px 8px;
+        }
+        .trash-banner button:hover { background: var(--error-text); color: #fff; }
+
+        /* Note card restore button */
+        .note-restore {
+            display: none; background: none; border: 1px solid var(--accent); border-radius: 4px;
+            color: var(--accent); cursor: pointer; font-size: 0.65rem; padding: 1px 6px;
+        }
+        .note-card:hover .note-restore { display: inline; }
+
         /* Hidden file inputs */
         #file-input, #enex-input { display: none; }
     </style>
@@ -629,9 +666,21 @@
                 <span class="nb-name">All Notes</span>
                 <span class="nb-count" id="nb-all-count">0</span>
             </div>
+            <div class="nb-item" data-nb="recent" id="nb-recent">
+                <span class="nb-name">Recent</span>
+            </div>
+            <div class="nb-item" data-nb="starred" id="nb-starred">
+                <span class="nb-name">Starred</span>
+                <span class="nb-count" id="nb-starred-count">0</span>
+            </div>
             <div class="nb-separator"></div>
             <div class="nb-section-label">Notebooks</div>
             <div id="nb-items"></div>
+            <div class="nb-separator"></div>
+            <div class="nb-item" data-nb="trash" id="nb-trash">
+                <span class="nb-name">Trash</span>
+                <span class="nb-count" id="nb-trash-count">0</span>
+            </div>
         </div>
         <div id="nb-footer">
             <button class="nb-add-btn" id="new-nb-btn">+ New Notebook</button>
@@ -662,6 +711,20 @@
         </div>
         <div id="search-bar">
             <input type="text" id="search-input" placeholder="Search notes...">
+        </div>
+        <div id="sort-bar">
+            <select id="sort-select">
+                <option value="created_desc">Newest first</option>
+                <option value="created_asc">Oldest first</option>
+                <option value="updated_desc">Recently updated</option>
+                <option value="updated_asc">Least recently updated</option>
+                <option value="title_asc">Title A-Z</option>
+                <option value="title_desc">Title Z-A</option>
+            </select>
+        </div>
+        <div id="trash-banner" class="trash-banner" style="display:none">
+            <span>Trash</span>
+            <button id="empty-trash-btn">Empty Trash</button>
         </div>
         <ul id="note-list"></ul>
         <div id="drop-zone-mini">
@@ -699,6 +762,9 @@
                 <button class="toolbar-btn" data-cmd="insertOrderedList" title="Numbered List">1. List</button>
                 <div class="toolbar-sep"></div>
                 <button class="toolbar-btn" id="cleanup-btn" title="Remove extra blank lines">Clean up</button>
+                <div class="toolbar-sep"></div>
+                <button class="toolbar-btn" id="duplicate-btn" title="Duplicate note">Duplicate</button>
+                <button class="toolbar-btn" id="star-btn" title="Star / Unstar">&#9734;</button>
                 <div class="toolbar-spacer"></div>
                 <button class="toolbar-btn" id="topicmap-toggle" title="Toggle Topic Map">Topic Map</button>
             </div>
@@ -816,9 +882,16 @@
         const topicmapTooltip = document.getElementById("topicmap-tooltip");
         const buildTopicmapBtn = document.getElementById("build-topicmap-btn");
         const topicmapStaleLabel = document.getElementById("topicmap-stale-label");
+        const sortSelect = document.getElementById("sort-select");
+        const trashBanner = document.getElementById("trash-banner");
+        const starBtn = document.getElementById("star-btn");
+        const nbStarredCount = document.getElementById("nb-starred-count");
+        const nbTrashCount = document.getElementById("nb-trash-count");
 
         // --- State ---
         let currentFileId = null;
+        let currentFileStarred = false;
+        let currentView = null; // null = normal, "recent", "starred", "trash"
         let currentNotebook = null; // null = "All Notes"
         let saveTimeout = null;
         let titleSaveTimeout = null;
@@ -909,6 +982,8 @@
                 const data = await res.json();
                 allNotebooks = data.notebooks || [];
                 nbAllCount.textContent = data.total;
+                nbStarredCount.textContent = data.starred || 0;
+                nbTrashCount.textContent = data.trash_count || 0;
 
                 nbItems.innerHTML = "";
                 if (allNotebooks.length === 0) {
@@ -958,16 +1033,41 @@
             metaNotebookSelect.value = val || "My Notebook";
         }
 
-        nbAllItem.addEventListener("click", () => selectNotebook(null));
+        nbAllItem.addEventListener("click", () => selectView(null, null));
+        document.getElementById("nb-recent").addEventListener("click", () => selectView("recent", null));
+        document.getElementById("nb-starred").addEventListener("click", () => selectView("starred", null));
+        document.getElementById("nb-trash").addEventListener("click", () => selectView("trash", null));
 
         function selectNotebook(name) {
-            currentNotebook = name;
-            notesTitle.textContent = name || "All Notes";
+            selectView(null, name);
+        }
+
+        function selectView(view, notebook) {
+            currentView = view;
+            currentNotebook = notebook;
+
+            // Title
+            if (view === "recent") notesTitle.textContent = "Recent Notes";
+            else if (view === "starred") notesTitle.textContent = "Starred";
+            else if (view === "trash") notesTitle.textContent = "Trash";
+            else notesTitle.textContent = notebook || "All Notes";
+
+            // Trash banner
+            trashBanner.style.display = view === "trash" ? "flex" : "none";
+
+            // Hide actions in trash view
+            document.getElementById("notes-actions").style.display = view === "trash" ? "none" : "flex";
+            document.getElementById("sort-bar").style.display = view === "trash" || view === "recent" ? "none" : "flex";
+
             // Update active state
-            document.querySelectorAll(".nb-item").forEach(el => {
-                el.classList.toggle("active", el.dataset.nb === (name || "all"));
+            document.querySelectorAll("#nb-list .nb-item").forEach(el => {
+                if (view) {
+                    el.classList.toggle("active", el.dataset.nb === view);
+                } else {
+                    el.classList.toggle("active", el.dataset.nb === (notebook || "all"));
+                }
             });
-            nbAllItem.classList.toggle("active", !name);
+
             loadNoteList();
         }
 
@@ -1002,7 +1102,11 @@
         async function loadNoteList() {
             let url = "/library";
             const params = new URLSearchParams();
+            if (currentView) params.set("view", currentView);
             if (currentNotebook) params.set("notebook", currentNotebook);
+            if (!currentView || (currentView !== "trash" && currentView !== "recent")) {
+                params.set("sort", sortSelect.value);
+            }
             const q = searchInput.value.trim();
             if (q) params.set("q", q);
             if (params.toString()) url += "?" + params;
@@ -1023,6 +1127,7 @@
 
                 const date = new Date(f.created_at).toLocaleDateString();
                 const typeLabel = f.duration ? formatDuration(f.duration) : "Note";
+                const isTrash = currentView === "trash";
                 let tagsHtml = "";
                 if (f.tags) {
                     try {
@@ -1035,23 +1140,58 @@
                     } catch (_) {}
                 }
 
+                const starClass = f.starred ? "note-star starred" : "note-star";
+                const starIcon = f.starred ? "&#9733;" : "&#9734;";
+
                 li.innerHTML = `
-                    <div class="note-card-title">${escapeHtml(f.original_name)}</div>
+                    <div style="display:flex;align-items:center;gap:4px">
+                        ${!isTrash ? '<button class="' + starClass + '" data-star-id="' + f.id + '" title="Star">' + starIcon + '</button>' : ''}
+                        <div class="note-card-title" style="flex:1">${escapeHtml(f.original_name)}</div>
+                    </div>
                     <div class="note-card-preview">${escapeHtml(f.preview || "")}</div>
                     <div class="note-card-meta">
                         <span>${date} &middot; <span class="note-type">${typeLabel}</span></span>
-                        <button class="note-delete" data-id="${f.id}" title="Delete">&times;</button>
+                        <span>
+                            ${isTrash ? '<button class="note-restore" data-restore-id="' + f.id + '">Restore</button>' : ''}
+                            <button class="note-delete" data-id="${f.id}" title="${isTrash ? 'Delete permanently' : 'Move to trash'}">&times;</button>
+                        </span>
                     </div>
                     ${tagsHtml}
                 `;
 
                 li.addEventListener("click", (e) => {
-                    if (e.target.classList.contains("note-delete")) return;
+                    if (e.target.closest(".note-delete") || e.target.closest(".note-star") || e.target.closest(".note-restore")) return;
                     openFile(f.id);
                 });
+
+                // Star toggle
+                const starEl = li.querySelector("[data-star-id]");
+                if (starEl) {
+                    starEl.addEventListener("click", async (e) => {
+                        e.stopPropagation();
+                        await fetch(`/library/${f.id}/star`, { method: "PUT" });
+                        loadNoteList();
+                        loadNotebooks();
+                    });
+                }
+
+                // Restore from trash
+                const restoreEl = li.querySelector("[data-restore-id]");
+                if (restoreEl) {
+                    restoreEl.addEventListener("click", async (e) => {
+                        e.stopPropagation();
+                        await fetch(`/library/${f.id}/restore`, { method: "PUT" });
+                        loadNoteList();
+                        loadNotebooks();
+                    });
+                }
+
                 li.querySelector(".note-delete").addEventListener("click", async (e) => {
                     e.stopPropagation();
-                    if (!confirm(`Delete "${f.original_name}"?`)) return;
+                    const msg = isTrash
+                        ? `Permanently delete "${f.original_name}"? This cannot be undone.`
+                        : `Move "${f.original_name}" to trash?`;
+                    if (!confirm(msg)) return;
                     await fetch(`/library/${f.id}`, { method: "DELETE" });
                     if (currentFileId === f.id) resetUI();
                     loadNoteList();
@@ -1065,6 +1205,18 @@
         searchInput.addEventListener("input", () => {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => loadNoteList(), 300);
+        });
+
+        // Sort
+        sortSelect.addEventListener("change", () => loadNoteList());
+
+        // Empty trash
+        document.getElementById("empty-trash-btn").addEventListener("click", async () => {
+            if (!confirm("Permanently delete all notes in trash? This cannot be undone.")) return;
+            await fetch("/library/empty-trash", { method: "POST" });
+            if (currentFileId) resetUI();
+            loadNoteList();
+            loadNotebooks();
         });
 
         // --- New Note ---
@@ -1081,6 +1233,33 @@
                 await loadNotebooks();
                 openFile(data.file_id);
             } catch (e) { showError(e.message); }
+        });
+
+        // --- Duplicate Note ---
+        document.getElementById("duplicate-btn").addEventListener("click", async () => {
+            if (!currentFileId) return;
+            try {
+                const res = await fetch(`/library/${currentFileId}/duplicate`, { method: "POST" });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Failed");
+                await loadNoteList();
+                await loadNotebooks();
+                openFile(data.file_id);
+            } catch (e) { showError(e.message); }
+        });
+
+        // --- Star toggle (toolbar) ---
+        starBtn.addEventListener("click", async () => {
+            if (!currentFileId) return;
+            const res = await fetch(`/library/${currentFileId}/star`, { method: "PUT" });
+            const data = await res.json();
+            if (res.ok) {
+                currentFileStarred = !!data.starred;
+                starBtn.innerHTML = currentFileStarred ? "&#9733;" : "&#9734;";
+                starBtn.classList.toggle("starred", currentFileStarred);
+                loadNoteList();
+                loadNotebooks();
+            }
         });
 
         // --- Import Evernote ---
@@ -1310,6 +1489,11 @@
 
             // Title
             noteTitle.value = data.original_name || "";
+
+            // Star state
+            currentFileStarred = !!data.starred;
+            starBtn.innerHTML = currentFileStarred ? "&#9733;" : "&#9734;";
+            starBtn.classList.toggle("starred", currentFileStarred);
 
             // Metadata
             metaCreated.textContent = new Date(data.created_at).toLocaleString();
