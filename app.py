@@ -1,9 +1,11 @@
 import hashlib
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import uuid
+import xml.etree.ElementTree as ET
 from datetime import datetime
 
 import whisper
@@ -28,6 +30,7 @@ ALLOWED_EXTENSIONS = {"m4a", "mp3", "wav", "ogg", "flac", "webm", "mp4", "wma"}
 TEXT_EXTENSIONS = {"txt", "md", "csv", "json", "log", "rtf"}
 
 CHUNK_SECONDS = 120  # 2-minute chunks for progress tracking
+DEFAULT_NOTEBOOK = "My Notebook"
 
 
 # --- Database ---
@@ -58,6 +61,28 @@ def init_db():
         conn.execute("ALTER TABLE files ADD COLUMN transcription_en TEXT")
     if "insights_json" not in cols:
         conn.execute("ALTER TABLE files ADD COLUMN insights_json TEXT")
+    if "updated_at" not in cols:
+        conn.execute("ALTER TABLE files ADD COLUMN updated_at TEXT")
+    if "tags" not in cols:
+        conn.execute("ALTER TABLE files ADD COLUMN tags TEXT")
+    if "notebook" not in cols:
+        conn.execute("ALTER TABLE files ADD COLUMN notebook TEXT")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS notebooks (
+            name TEXT PRIMARY KEY,
+            created_at TEXT
+        )
+    """)
+    # Ensure default notebook exists and assign orphan notes
+    DEFAULT_NOTEBOOK = "My Notebook"
+    conn.execute(
+        "INSERT OR IGNORE INTO notebooks (name, created_at) VALUES (?, ?)",
+        (DEFAULT_NOTEBOOK, datetime.now().isoformat())
+    )
+    conn.execute(
+        "UPDATE files SET notebook = ? WHERE notebook IS NULL OR notebook = ''",
+        (DEFAULT_NOTEBOOK,)
+    )
     conn.execute("""
         CREATE TABLE IF NOT EXISTS cache (
             key TEXT PRIMARY KEY,
@@ -187,8 +212,8 @@ def upload():
                 text_content = f.read()
             conn = get_db()
             conn.execute(
-                "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at) VALUES (?, ?, NULL, 0, ?, ?)",
-                (file_id, file.filename, text_content, datetime.now().isoformat())
+                "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at, notebook) VALUES (?, ?, NULL, 0, ?, ?, ?)",
+                (file_id, file.filename, text_content, datetime.now().isoformat(), DEFAULT_NOTEBOOK)
             )
             conn.commit()
             conn.close()
@@ -202,8 +227,8 @@ def upload():
 
         conn = get_db()
         conn.execute(
-            "INSERT INTO files (id, original_name, mp3_path, duration, created_at) VALUES (?, ?, ?, ?, ?)",
-            (file_id, file.filename, mp3_filename, duration, datetime.now().isoformat())
+            "INSERT INTO files (id, original_name, mp3_path, duration, created_at, notebook) VALUES (?, ?, ?, ?, ?, ?)",
+            (file_id, file.filename, mp3_filename, duration, datetime.now().isoformat(), DEFAULT_NOTEBOOK)
         )
         conn.commit()
         conn.close()
@@ -287,28 +312,112 @@ def transcribe_library_file(file_id):
 @app.route("/library")
 def library_list():
     conn = get_db()
-    rows = conn.execute(
-        "SELECT id, original_name, duration, created_at, transcription IS NOT NULL as has_transcription FROM files ORDER BY created_at DESC"
-    ).fetchall()
+    notebook_filter = request.args.get("notebook")
+    search_q = request.args.get("q")
+
+    query = ("SELECT id, original_name, duration, created_at, tags, notebook, "
+             "COALESCE(transcription_en, transcription, '') as raw_text, "
+             "transcription IS NOT NULL as has_transcription FROM files")
+    params = []
+    conditions = []
+
+    if notebook_filter:
+        conditions.append("notebook = ?")
+        params.append(notebook_filter)
+    if search_q:
+        conditions.append("(original_name LIKE ? OR transcription LIKE ? OR transcription_en LIKE ?)")
+        s = f"%{search_q}%"
+        params.extend([s, s, s])
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += " ORDER BY created_at DESC"
+
+    rows = conn.execute(query, params).fetchall()
     conn.close()
-    return jsonify([dict(r) for r in rows])
+
+    result = []
+    for r in rows:
+        d = dict(r)
+        raw = d.pop("raw_text", "")
+        d["preview"] = re.sub(r'<[^>]+>', '', raw).strip()[:150]
+        result.append(d)
+    return jsonify(result)
+
+
+@app.route("/notebooks")
+def list_notebooks():
+    conn = get_db()
+    nb_rows = conn.execute(
+        "SELECT n.name, COALESCE(c.cnt, 0) as note_count FROM notebooks n "
+        "LEFT JOIN (SELECT notebook, COUNT(*) as cnt FROM files WHERE notebook IS NOT NULL "
+        "AND notebook != '' GROUP BY notebook) c ON c.notebook = n.name "
+        "ORDER BY n.name"
+    ).fetchall()
+    # Also include notebooks from files that aren't in notebooks table
+    file_nbs = conn.execute(
+        "SELECT notebook as name, COUNT(*) as note_count FROM files "
+        "WHERE notebook IS NOT NULL AND notebook != '' GROUP BY notebook ORDER BY notebook"
+    ).fetchall()
+    total = conn.execute("SELECT COUNT(*) as c FROM files").fetchone()["c"]
+    conn.close()
+
+    known = {r["name"] for r in nb_rows}
+    notebooks = [dict(r) for r in nb_rows]
+    for r in file_nbs:
+        if r["name"] not in known:
+            notebooks.append(dict(r))
+    notebooks.sort(key=lambda x: x["name"])
+    return jsonify({"total": total, "notebooks": notebooks})
+
+
+@app.route("/notebooks", methods=["POST"])
+def create_notebook():
+    data = request.get_json()
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Name required"}), 400
+    conn = get_db()
+    try:
+        conn.execute("INSERT INTO notebooks (name, created_at) VALUES (?, ?)",
+                     (name, datetime.now().isoformat()))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return jsonify({"error": "Notebook already exists"}), 400
+    conn.close()
+    return jsonify({"ok": True, "name": name})
+
+
+@app.route("/notebooks/delete", methods=["POST"])
+def delete_notebook():
+    data = request.get_json()
+    name = data.get("name", "")
+    conn = get_db()
+    conn.execute("UPDATE files SET notebook = NULL WHERE notebook = ?", (name,))
+    conn.execute("DELETE FROM notebooks WHERE name = ?", (name,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
 
 
 @app.route("/library/note", methods=["POST"])
 def create_note():
     """Create a text-only note (no audio)."""
+    data = request.get_json() or {}
+    notebook = data.get("notebook") or DEFAULT_NOTEBOOK
     file_id = str(uuid.uuid4())
     base_name = f"Note {datetime.now().strftime('%Y-%m-%d')}"
     conn = get_db()
-    # Avoid duplicate names
     existing = conn.execute(
         "SELECT original_name FROM files WHERE original_name LIKE ?", (base_name + "%",)
     ).fetchall()
     if existing:
         base_name = f"{base_name} ({len(existing) + 1})"
     conn.execute(
-        "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at) VALUES (?, ?, NULL, 0, '', ?)",
-        (file_id, base_name, datetime.now().isoformat())
+        "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at, notebook) "
+        "VALUES (?, ?, NULL, 0, '', ?, ?)",
+        (file_id, base_name, datetime.now().isoformat(), notebook)
     )
     conn.commit()
     conn.close()
@@ -335,6 +444,30 @@ def library_update_text(file_id):
         conn.execute("UPDATE files SET transcription = ? WHERE id = ?", (data["text"], file_id))
     if "text_en" in data:
         conn.execute("UPDATE files SET transcription_en = ? WHERE id = ?", (data["text_en"], file_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/library/<file_id>/rename", methods=["PUT"])
+def rename_note(file_id):
+    data = request.get_json()
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Name required"}), 400
+    conn = get_db()
+    conn.execute("UPDATE files SET original_name = ? WHERE id = ?", (name, file_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/library/<file_id>/notebook", methods=["PUT"])
+def update_note_notebook(file_id):
+    data = request.get_json()
+    notebook = data.get("notebook") or DEFAULT_NOTEBOOK
+    conn = get_db()
+    conn.execute("UPDATE files SET notebook = ? WHERE id = ?", (notebook, file_id))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -526,6 +659,102 @@ def build_topic_map():
     conn.close()
 
     return jsonify(topic_map)
+
+
+# --- Evernote Import ---
+
+def parse_enex_date(date_str):
+    """Parse Evernote date format (20231015T123456Z) to ISO format."""
+    if not date_str:
+        return datetime.now().isoformat()
+    try:
+        dt = datetime.strptime(date_str.strip(), "%Y%m%dT%H%M%SZ")
+        return dt.isoformat()
+    except ValueError:
+        return datetime.now().isoformat()
+
+
+def enml_to_html(enml_content):
+    """Convert ENML content to clean HTML."""
+    if not enml_content:
+        return ""
+    # Remove XML declaration and DOCTYPE
+    content = re.sub(r'<\?xml[^?]*\?>', '', enml_content)
+    content = re.sub(r'<!DOCTYPE[^>]*>', '', content)
+    # Replace en-note with div
+    content = re.sub(r'<en-note[^>]*>', '', content)
+    content = re.sub(r'</en-note>', '', content)
+    # Remove en-media tags (embedded resources) — keep a placeholder
+    content = re.sub(r'<en-media[^>]*/>', '', content)
+    content = re.sub(r'<en-media[^>]*>.*?</en-media>', '', content, flags=re.DOTALL)
+    # Remove en-crypt, en-todo (checkboxes become text)
+    content = re.sub(r'<en-todo\s+checked="true"\s*/>', '[x] ', content)
+    content = re.sub(r'<en-todo[^>]*/>', '[ ] ', content)
+    content = re.sub(r'<en-crypt[^>]*>.*?</en-crypt>', '', content, flags=re.DOTALL)
+    return content.strip()
+
+
+@app.route("/import-enex", methods=["POST"])
+def import_enex():
+    """Import notes from an Evernote .enex export file."""
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files["file"]
+    if not file.filename.lower().endswith(".enex"):
+        return jsonify({"error": "Please upload an .enex file (Evernote export)"}), 400
+
+    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(filepath)
+
+    try:
+        tree = ET.parse(filepath)
+        root = tree.getroot()
+
+        notes = root.findall("note")
+        if not notes:
+            return jsonify({"error": "No notes found in the .enex file"}), 400
+
+        conn = get_db()
+        imported = []
+
+        for note in notes:
+            file_id = str(uuid.uuid4())
+
+            title = note.findtext("title", "Untitled")
+            content_el = note.find("content")
+            enml_content = content_el.text if content_el is not None else ""
+            html_content = enml_to_html(enml_content)
+
+            created = parse_enex_date(note.findtext("created"))
+            updated = parse_enex_date(note.findtext("updated"))
+
+            # Collect tags
+            tag_elements = note.findall("tag")
+            tags = json.dumps([t.text for t in tag_elements if t.text]) if tag_elements else None
+
+            conn.execute(
+                "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at, updated_at, tags, notebook) "
+                "VALUES (?, ?, NULL, 0, ?, ?, ?, ?, ?)",
+                (file_id, title, html_content, created, updated, tags, DEFAULT_NOTEBOOK)
+            )
+            imported.append({"file_id": file_id, "title": title})
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            "imported": len(imported),
+            "notes": imported
+        })
+
+    except ET.ParseError as e:
+        return jsonify({"error": f"Invalid XML: {str(e)}"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if os.path.exists(filepath):
+            os.remove(filepath)
 
 
 # --- Helpers ---

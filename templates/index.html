@@ -49,6 +49,54 @@
             --graph-edge-stroke: #fafafa;
             --highlight-bg: #fff3b0;
             --highlight-text: #2a2a2a;
+            --nb-bg: #f0f0f0;
+            --nb-active: #e0e4f0;
+        }
+
+        [data-theme="evernote"] {
+            --bg-body: #f2f2f2;
+            --bg-panel: #fff;
+            --bg-surface: #fff;
+            --bg-surface-hover: #f5f5f5;
+            --bg-graph: #fafafa;
+            --border: #e0e0e0;
+            --border-item: #ebebeb;
+            --text-primary: #1d1d1d;
+            --text-heading: #000;
+            --text-secondary: #585858;
+            --text-muted: #9b9b9b;
+            --text-faint: #bbb;
+            --text-placeholder: #bbb;
+            --text-item: #333;
+            --accent: #00a82d;
+            --accent-hover: #008f26;
+            --accent-bg: #e6f9ec;
+            --accent-border: #00871f;
+            --accent-highlight: #2dc653;
+            --drop-border: #ccc;
+            --btn-save: #00a82d;
+            --btn-save-hover: #008f26;
+            --btn-disabled-bg: #e0e0e0;
+            --btn-disabled-text: #9b9b9b;
+            --error-bg: #fef0f0;
+            --error-text: #d32f2f;
+            --error-border: #f5c6c6;
+            --delete-hover-text: #d32f2f;
+            --delete-hover-bg: #fef0f0;
+            --progress-track: #e0e0e0;
+            --spinner-bg: #e0e0e0;
+            --graph-node: #00a82d;
+            --graph-node-border: #00871f;
+            --graph-node-highlight: #2dc653;
+            --graph-node-text: #fff;
+            --graph-edge: #ccc;
+            --graph-edge-highlight: #00a82d;
+            --graph-edge-label: #9b9b9b;
+            --graph-edge-stroke: #fafafa;
+            --highlight-bg: #d4f5dd;
+            --highlight-text: #1d1d1d;
+            --nb-bg: #f7f7f7;
+            --nb-active: #e6f9ec;
         }
 
         [data-theme="dark"] {
@@ -93,6 +141,8 @@
             --graph-edge-stroke: #111a30;
             --highlight-bg: #5a4a10;
             --highlight-text: #f0e0a0;
+            --nb-bg: #16213e;
+            --nb-active: #1a3a6a;
         }
 
         [data-theme="midnight"] {
@@ -137,6 +187,8 @@
             --graph-edge-stroke: #0d1117;
             --highlight-bg: #3d3200;
             --highlight-text: #ffd700;
+            --nb-bg: #161b22;
+            --nb-active: #21262d;
         }
 
         [data-theme="warm"] {
@@ -181,6 +233,8 @@
             --graph-edge-stroke: #fefae0;
             --highlight-bg: #f5e6c8;
             --highlight-text: #3e3529;
+            --nb-bg: #edede9;
+            --nb-active: #f5e6c8;
         }
 
         [data-theme="nord"] {
@@ -225,8 +279,11 @@
             --graph-edge-stroke: #2e3440;
             --highlight-bg: #4c4a3a;
             --highlight-text: #ebcb8b;
+            --nb-bg: #3b4252;
+            --nb-active: #434c5e;
         }
 
+        /* --- Reset & Base --- */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -234,97 +291,263 @@
             display: flex;
         }
 
-        /* --- Sidebar --- */
-        #sidebar {
-            width: 260px; min-width: 260px; background: var(--bg-panel); border-right: 1px solid var(--border);
-            display: flex; flex-direction: column; height: 100vh;
+        /* --- Three Panel Layout --- */
+        #notebooks-panel {
+            width: 200px; min-width: 200px; background: var(--nb-bg);
+            border-right: 1px solid var(--border); display: flex; flex-direction: column;
+            height: 100vh; overflow: hidden;
         }
-        #sidebar-header { padding: 20px 16px 12px; border-bottom: 1px solid var(--border); }
-        #sidebar-header h1 { font-size: 1.1rem; font-weight: 600; color: var(--text-heading); margin-bottom: 12px; }
-        #drop-zone {
-            border: 2px dashed var(--drop-border); border-radius: 8px; padding: 14px 10px;
-            text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg-surface);
-            font-size: 0.8rem; color: var(--text-muted);
+        #notes-panel {
+            width: 300px; min-width: 260px; background: var(--bg-panel);
+            border-right: 1px solid var(--border); display: flex; flex-direction: column;
+            height: 100vh; overflow: hidden;
         }
-        #drop-zone:hover, #drop-zone.drag-over { border-color: var(--accent); background: var(--accent-bg); color: var(--text-secondary); }
-        #drop-zone .formats { font-size: 0.7rem; color: var(--text-placeholder); margin-top: 4px; }
-        #file-input { display: none; }
+        #editor-panel {
+            flex: 1; display: flex; flex-direction: column;
+            height: 100vh; overflow: hidden; background: var(--bg-surface);
+        }
+        #topicmap-panel {
+            width: 380px; min-width: 300px; background: var(--bg-panel);
+            border-left: 1px solid var(--border); display: none; flex-direction: column;
+            height: 100vh; overflow: hidden;
+        }
+        #topicmap-panel.visible { display: flex; }
 
-        /* Theme selector */
-        #theme-bar {
-            padding: 8px 16px; border-bottom: 1px solid var(--border);
-            display: flex; align-items: center; gap: 8px;
+        /* --- Notebooks Panel --- */
+        #nb-header {
+            padding: 16px 14px 8px; border-bottom: 1px solid var(--border);
         }
-        #theme-bar label { font-size: 0.75rem; color: var(--text-muted); }
-        #theme-select {
-            flex: 1; padding: 4px 8px; border-radius: 5px; border: 1px solid var(--border);
-            background: var(--bg-surface); color: var(--text-primary); font-size: 0.78rem;
-            font-family: inherit; cursor: pointer; outline: none;
+        #nb-header h1 {
+            font-size: 1.1rem; font-weight: 700; color: var(--text-heading); margin-bottom: 12px;
         }
-        #theme-select:focus { border-color: var(--accent); }
+        #nb-list { flex: 1; overflow-y: auto; padding: 6px 0; }
+        .nb-item {
+            padding: 7px 14px; font-size: 0.82rem; color: var(--text-secondary);
+            cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+            transition: background 0.1s; border-left: 3px solid transparent;
+        }
+        .nb-item:hover { background: var(--bg-surface-hover); }
+        .nb-item.active {
+            background: var(--nb-active); color: var(--text-heading);
+            font-weight: 500; border-left-color: var(--accent);
+        }
+        .nb-item .nb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .nb-count {
+            font-size: 0.7rem; color: var(--text-muted); background: var(--bg-surface);
+            padding: 1px 6px; border-radius: 8px; min-width: 20px; text-align: center;
+        }
+        .nb-separator { height: 1px; background: var(--border); margin: 6px 14px; }
+        .nb-section-label {
+            font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em;
+            color: var(--text-faint); padding: 8px 14px 4px; font-weight: 600;
+        }
+        .nb-item .nb-delete {
+            display: none; background: none; border: none; color: var(--text-faint);
+            cursor: pointer; font-size: 0.9rem; padding: 0 2px; line-height: 1;
+        }
+        .nb-item:hover .nb-delete { display: inline; }
+        .nb-item .nb-delete:hover { color: var(--delete-hover-text); }
+        #nb-footer {
+            padding: 8px 10px; border-top: 1px solid var(--border);
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        #nb-footer .nb-add-btn {
+            background: none; border: 1px dashed var(--border); border-radius: 6px;
+            color: var(--text-muted); font-size: 0.78rem; padding: 5px 8px;
+            cursor: pointer; transition: all 0.15s; width: 100%;
+        }
+        #nb-footer .nb-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+        #nb-footer select {
+            width: 100%; padding: 4px 6px; border: 1px solid var(--border);
+            border-radius: 4px; background: var(--bg-surface); color: var(--text-secondary);
+            font-size: 0.75rem;
+        }
 
-        #library-list { flex: 1; overflow-y: auto; padding: 8px; list-style: none; }
-        .lib-item {
-            padding: 10px 12px; background: var(--bg-surface); border: 1px solid var(--border-item);
-            border-radius: 6px; margin-bottom: 6px; cursor: pointer; transition: all 0.15s;
+        /* --- Notes Panel --- */
+        #notes-header {
+            padding: 12px 14px 8px; border-bottom: 1px solid var(--border);
         }
-        .lib-item:hover { border-color: var(--text-faint); background: var(--bg-surface-hover); }
-        .lib-item.active { border-color: var(--accent); background: var(--accent-bg); }
-        .lib-item-name { font-size: 0.85rem; color: var(--text-item); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .lib-item-meta { font-size: 0.7rem; color: var(--text-muted); margin-top: 3px; display: flex; justify-content: space-between; }
-        .lib-delete { color: var(--text-faint); font-size: 0.7rem; cursor: pointer; background: none; border: none; padding: 2px 6px; border-radius: 4px; }
-        .lib-delete:hover { color: var(--delete-hover-text); background: var(--delete-hover-bg); }
-        .lib-empty { color: var(--text-faint); font-size: 0.8rem; padding: 16px; text-align: center; }
+        #notes-header-row {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+        }
+        #notes-title {
+            font-size: 0.95rem; font-weight: 600; color: var(--text-heading);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .notes-count {
+            font-size: 0.7rem; color: var(--text-muted); margin-left: 6px;
+        }
+        #notes-actions { display: flex; gap: 4px; }
+        #notes-actions button {
+            background: none; border: 1px solid var(--border); border-radius: 4px;
+            color: var(--text-muted); cursor: pointer; padding: 3px 8px; font-size: 0.78rem;
+            transition: all 0.15s;
+        }
+        #notes-actions button:hover { border-color: var(--accent); color: var(--accent); }
+        #search-bar {
+            padding: 0 14px 10px;
+        }
+        #search-input {
+            width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+            background: var(--bg-surface); color: var(--text-primary); font-size: 0.82rem;
+            outline: none; font-family: inherit;
+        }
+        #search-input:focus { border-color: var(--accent); }
+        #search-input::placeholder { color: var(--text-placeholder); }
+        #note-list {
+            flex: 1; overflow-y: auto; list-style: none; padding: 0;
+        }
+        .note-card {
+            padding: 10px 14px; border-bottom: 1px solid var(--border-item);
+            cursor: pointer; transition: background 0.1s;
+        }
+        .note-card:hover { background: var(--bg-surface-hover); }
+        .note-card.active { background: var(--accent-bg); border-left: 3px solid var(--accent); }
+        .note-card-title {
+            font-size: 0.85rem; font-weight: 500; color: var(--text-heading);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 3px;
+        }
+        .note-card-preview {
+            font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;
+            overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical; margin-bottom: 4px;
+        }
+        .note-card-meta {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.68rem; color: var(--text-faint);
+        }
+        .note-card-meta .note-type {
+            background: var(--accent-bg); color: var(--accent); padding: 1px 5px;
+            border-radius: 4px; font-size: 0.62rem;
+        }
+        .note-card-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+        .note-tag {
+            font-size: 0.62rem; padding: 1px 5px; border-radius: 8px;
+            background: var(--accent-bg); color: var(--accent); border: 1px solid var(--border);
+        }
+        .note-card .note-delete {
+            display: none; background: none; border: none; cursor: pointer;
+            color: var(--text-faint); font-size: 0.85rem; padding: 0 2px;
+        }
+        .note-card:hover .note-delete { display: inline; }
+        .note-card .note-delete:hover { color: var(--delete-hover-text); }
+        #drop-zone-mini {
+            margin: 8px 14px; padding: 12px; border: 2px dashed var(--drop-border);
+            border-radius: 8px; text-align: center; font-size: 0.75rem;
+            color: var(--text-faint); cursor: pointer; transition: all 0.2s;
+        }
+        #drop-zone-mini:hover, #drop-zone-mini.drag-over {
+            border-color: var(--accent); color: var(--accent); background: var(--accent-bg);
+        }
 
-        /* --- Main --- */
-        #main { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        /* --- Editor Panel --- */
+        #editor-empty {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            flex-direction: column; gap: 12px; color: var(--text-faint);
+        }
+        #editor-empty .empty-icon { font-size: 3rem; opacity: 0.3; }
+        #editor-empty p { font-size: 0.9rem; }
+        #editor-active { display: none; flex: 1; flex-direction: column; min-height: 0; }
+        #editor-active.visible { display: flex; }
+
+        /* Toolbar */
+        #editor-toolbar {
+            display: flex; align-items: center; gap: 2px; padding: 4px 10px;
+            border-bottom: 1px solid var(--border); background: var(--bg-panel);
+            flex-wrap: wrap;
+        }
+        .toolbar-btn {
+            background: none; border: 1px solid transparent; border-radius: 4px;
+            color: var(--text-secondary); cursor: pointer; padding: 4px 8px;
+            font-size: 0.82rem; transition: all 0.1s; line-height: 1;
+        }
+        .toolbar-btn:hover { background: var(--bg-surface-hover); border-color: var(--border); }
+        .toolbar-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-border); }
+        .toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+        .toolbar-spacer { flex: 1; }
+        .toolbar-btn svg { width: 16px; height: 16px; vertical-align: middle; fill: currentColor; }
+
+        /* Note title */
+        #note-title-bar { padding: 12px 20px 0; }
+        #note-title {
+            width: 100%; border: none; background: transparent; font-size: 1.3rem;
+            font-weight: 600; color: var(--text-heading); outline: none; font-family: inherit;
+            padding: 0;
+        }
+        #note-title::placeholder { color: var(--text-faint); }
+
+        /* Metadata */
+        #note-meta {
+            padding: 6px 20px 8px; font-size: 0.72rem; color: var(--text-muted);
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            border-bottom: 1px solid var(--border);
+        }
+        #note-meta .meta-item { display: flex; align-items: center; gap: 4px; }
+        #note-meta .meta-label { color: var(--text-faint); }
+        #meta-notebook-select {
+            background: var(--bg-surface); border: 1px solid var(--border); border-radius: 4px;
+            color: var(--text-secondary); font-size: 0.72rem; padding: 1px 4px; cursor: pointer;
+        }
+        #save-status { font-size: 0.72rem; color: var(--text-muted); margin-left: auto; }
+
+        /* Error */
+        #error {
+            padding: 8px 20px; background: var(--error-bg); color: var(--error-text);
+            font-size: 0.82rem; display: none; border-bottom: 1px solid var(--error-border);
+        }
 
         /* Audio bar */
         #audio-bar {
-            padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg-panel);
-            display: none; align-items: center; gap: 12px;
+            display: none; align-items: center; gap: 10px; padding: 6px 20px;
+            background: var(--bg-panel); border-bottom: 1px solid var(--border);
         }
-        #audio-bar .file-title { font-size: 0.9rem; color: var(--text-secondary); white-space: nowrap; font-weight: 500; }
-        #audio-player { flex: 1; height: 32px; }
+        #audio-bar audio { height: 30px; flex: 1; }
 
-        /* Progress */
-        #progress-bar { padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg-panel); display: none; }
-        #progress-message { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px; }
-        #progress-track { width: 100%; height: 4px; background: var(--progress-track); border-radius: 2px; overflow: hidden; }
-        #progress-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
-        #progress-info { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
-
-        /* Content area: text panel + graph panel side by side */
-        #content-area { flex: 1; display: flex; overflow: hidden; min-height: 0; }
-
-        /* Text panel (hidden until a file is opened) */
-        #text-panel { flex: 1; display: none; flex-direction: column; border-right: 1px solid var(--border); min-width: 280px; min-height: 0; }
-        #text-panel-header {
-            padding: 0 16px; border-bottom: 1px solid var(--border); display: flex;
-            justify-content: space-between; align-items: center; height: 40px; background: var(--bg-panel);
+        /* Progress bar */
+        #progress-bar {
+            display: none; padding: 8px 20px; background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
         }
-        #save-status { font-size: 0.75rem; color: var(--text-muted); }
+        #progress-message { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; }
+        #progress-track {
+            height: 4px; background: var(--progress-track); border-radius: 2px; overflow: hidden;
+        }
+        #progress-fill {
+            height: 100%; width: 0; background: var(--accent);
+            transition: width 0.3s; border-radius: 2px;
+        }
+        #progress-info {
+            display: flex; justify-content: space-between; font-size: 0.72rem;
+            color: var(--text-muted); margin-top: 3px;
+        }
 
         /* Tabs */
-        .tabs { display: flex; gap: 0; }
+        #tab-bar {
+            display: flex; align-items: center; padding: 0 16px;
+            border-bottom: 1px solid var(--border); background: var(--bg-panel);
+        }
         .tab {
-            padding: 10px 16px; font-size: 0.8rem; color: var(--text-muted); cursor: pointer;
-            border-bottom: 2px solid transparent; transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none;
+            padding: 8px 14px; font-size: 0.8rem; color: var(--text-muted); cursor: pointer;
+            border-bottom: 2px solid transparent; transition: all 0.15s; background: none;
+            border-top: none; border-left: none; border-right: none;
         }
         .tab:hover { color: var(--text-secondary); }
         .tab.active { color: var(--text-heading); border-bottom-color: var(--accent); font-weight: 500; }
+        #single-lang-label {
+            display: none; font-size: 0.82rem; font-weight: 500; color: var(--text-heading); padding: 8px 4px;
+        }
+        .tab-actions { margin-left: auto; display: flex; gap: 6px; align-items: center; }
 
-        .text-area-wrap { flex: 1; position: relative; overflow: hidden; }
+        /* Text editors */
+        .editor-wrap { flex: 1; position: relative; overflow: hidden; min-height: 0; }
         .text-editor {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--bg-surface); border: none; color: var(--text-primary);
-            font-size: 0.95rem; line-height: 1.7; padding: 16px;
-            font-family: inherit; outline: none; overflow-y: auto;
-            word-wrap: break-word;
+            font-size: 0.95rem; line-height: 1.7; padding: 16px 20px;
+            font-family: inherit; outline: none; overflow-y: auto; word-wrap: break-word;
         }
         .text-editor:empty::before {
-            content: attr(data-placeholder);
-            color: var(--text-faint); pointer-events: none;
+            content: attr(data-placeholder); color: var(--text-faint); pointer-events: none;
         }
         .text-editor.hidden { display: none; }
         .text-editor ul, .text-editor ol { margin-left: 1.5em; margin-bottom: 0.5em; }
@@ -332,6 +555,7 @@
         .text-editor h1, .text-editor h2, .text-editor h3 { margin: 0.5em 0 0.3em; }
         .text-editor p { margin-bottom: 0.4em; }
 
+        /* Buttons */
         .btn {
             padding: 5px 14px; border: none; border-radius: 6px; font-size: 0.8rem;
             cursor: pointer; transition: background 0.2s;
@@ -344,6 +568,37 @@
         .btn-subtle { background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border); }
         .btn-subtle:hover { background: var(--bg-surface-hover); color: var(--text-secondary); }
 
+        /* Topic Map Panel */
+        #tm-header {
+            padding: 8px 14px; border-bottom: 1px solid var(--border); display: flex;
+            justify-content: space-between; align-items: center; background: var(--bg-panel);
+        }
+        #tm-header h2 { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); }
+        #tm-actions { padding: 8px 14px; display: flex; gap: 6px; align-items: center; border-bottom: 1px solid var(--border); }
+        #topicmap-wrap { flex: 1; position: relative; min-height: 0; }
+        #topicmap-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #topicmap-placeholder {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-faint); font-size: 0.85rem;
+        }
+        #topicmap-tooltip {
+            display: none; position: absolute; z-index: 100; background: var(--bg-surface);
+            border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: 240px;
+            font-size: 0.8rem; line-height: 1.5;
+        }
+        .tooltip-title { font-weight: 600; font-size: 0.88rem; color: var(--text-heading); margin-bottom: 4px; }
+        .tooltip-count { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 8px; }
+        .tooltip-files { list-style: none; padding: 0; margin: 0; }
+        .tooltip-files li { padding: 4px 0; border-top: 1px solid var(--border); }
+        .tooltip-files a { color: var(--accent); text-decoration: none; cursor: pointer; font-size: 0.78rem; }
+        .tooltip-files a:hover { text-decoration: underline; }
+        mark.topic-highlight {
+            background: var(--highlight-bg); color: var(--highlight-text);
+            border-radius: 2px; padding: 0 2px;
+        }
+
         /* Stale badge */
         #build-topicmap-btn.stale { position: relative; }
         #build-topicmap-btn.stale::after {
@@ -352,13 +607,6 @@
             border: 2px solid var(--bg-panel);
         }
 
-        /* Graph panel */
-        #graph-panel { flex: 1; display: flex; flex-direction: column; min-width: 280px; min-height: 0; }
-        #graph-panel-header {
-            padding: 0 16px; border-bottom: 1px solid var(--border); display: flex;
-            justify-content: space-between; align-items: center; height: 40px; background: var(--bg-panel);
-        }
-        #graph-panel-header h2 { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); }
         .spinner {
             width: 16px; height: 16px; border: 2px solid var(--spinner-bg);
             border-top: 2px solid var(--accent); border-radius: 50%;
@@ -366,146 +614,215 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* Topic Map */
-        #topicmap-wrap { flex: 1; position: relative; min-height: 0; }
-        #topicmap-wrap.hidden { display: none; }
-        #topicmap-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        #topicmap-placeholder {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; align-items: center; justify-content: center;
-            color: var(--text-faint); font-size: 0.9rem;
-        }
-        #topicmap-tooltip {
-            display: none; position: absolute; z-index: 100;
-            background: var(--bg-surface); border: 1px solid var(--border);
-            border-radius: 8px; padding: 12px 14px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: 260px;
-            font-size: 0.82rem; line-height: 1.5;
-        }
-        .tooltip-title { font-weight: 600; font-size: 0.9rem; color: var(--text-heading); margin-bottom: 4px; }
-        .tooltip-count { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px; }
-        .tooltip-files { list-style: none; padding: 0; margin: 0; }
-        .tooltip-files li { padding: 4px 0; border-top: 1px solid var(--border); }
-        .tooltip-files a { color: var(--accent); text-decoration: none; cursor: pointer; font-size: 0.8rem; }
-        .tooltip-files a:hover { text-decoration: underline; }
-        mark.topic-highlight {
-            background: var(--highlight-bg); color: var(--highlight-text);
-            border-radius: 2px; padding: 0 2px;
-        }
-
-
-        #error { padding: 10px 20px; background: var(--error-bg); color: var(--error-text); font-size: 0.85rem; display: none; border-bottom: 1px solid var(--error-border); }
+        /* Hidden file inputs */
+        #file-input, #enex-input { display: none; }
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    <div id="sidebar">
-        <div id="sidebar-header">
+    <!-- Notebooks Panel -->
+    <div id="notebooks-panel">
+        <div id="nb-header">
             <h1>Sememes</h1>
-            <div id="drop-zone">
-                Drop file or click to browse
-                <div class="formats">m4a mp3 wav ogg flac webm mp4 wma &middot; txt md csv json</div>
-            </div>
-            <input type="file" id="file-input" accept=".m4a,.mp3,.wav,.ogg,.flac,.webm,.mp4,.wma,.txt,.md,.csv,.json,.log,.rtf">
-            <button id="new-note-btn" class="btn btn-subtle" style="width:100%; margin-top:8px;">+ New Note</button>
         </div>
-        <div id="theme-bar">
-            <label for="theme-select">Theme</label>
+        <div id="nb-list">
+            <div class="nb-item active" data-nb="all" id="nb-all">
+                <span class="nb-name">All Notes</span>
+                <span class="nb-count" id="nb-all-count">0</span>
+            </div>
+            <div class="nb-separator"></div>
+            <div class="nb-section-label">Notebooks</div>
+            <div id="nb-items"></div>
+        </div>
+        <div id="nb-footer">
+            <button class="nb-add-btn" id="new-nb-btn">+ New Notebook</button>
             <select id="theme-select">
                 <option value="light">Light</option>
+                <option value="evernote">Evernote</option>
                 <option value="dark">Dark</option>
                 <option value="midnight">Midnight</option>
                 <option value="warm">Warm</option>
                 <option value="nord">Nord</option>
             </select>
         </div>
-        <ul id="library-list"></ul>
     </div>
 
-    <!-- Main -->
-    <div id="main">
-        <div id="error"></div>
-        <div id="audio-bar">
-            <span class="file-title" id="file-title"></span>
-            <audio id="audio-player" controls preload="none"></audio>
+    <!-- Notes List Panel -->
+    <div id="notes-panel">
+        <div id="notes-header">
+            <div id="notes-header-row">
+                <div>
+                    <span id="notes-title">All Notes</span>
+                    <span class="notes-count" id="notes-count">0</span>
+                </div>
+                <div id="notes-actions">
+                    <button id="new-note-btn" title="New Note">+ New</button>
+                    <button id="import-enex-btn" title="Import Evernote (.enex)">Import</button>
+                </div>
+            </div>
         </div>
-        <div id="progress-bar">
-            <div id="progress-message"></div>
-            <div id="progress-track"><div id="progress-fill"></div></div>
-            <div id="progress-info"><span id="progress-percent"></span><span id="progress-elapsed"></span></div>
+        <div id="search-bar">
+            <input type="text" id="search-input" placeholder="Search notes...">
+        </div>
+        <ul id="note-list"></ul>
+        <div id="drop-zone-mini">
+            Drop files here to upload
+            <div style="font-size:0.65rem; margin-top:3px; color:var(--text-faint)">audio &middot; text &middot; enex</div>
+        </div>
+        <input type="file" id="file-input" accept=".m4a,.mp3,.wav,.ogg,.flac,.webm,.mp4,.wma,.txt,.md,.csv,.json,.log,.rtf,.enex">
+        <input type="file" id="enex-input" accept=".enex">
+    </div>
+
+    <!-- Editor Panel -->
+    <div id="editor-panel">
+        <div id="error"></div>
+
+        <!-- Empty state -->
+        <div id="editor-empty">
+            <div class="empty-icon">&#9998;</div>
+            <p>Select a note or create a new one</p>
         </div>
 
-        <div id="content-area">
-            <!-- Text panel (shown when a file is open) -->
-            <div id="text-panel">
-                <div id="text-panel-header">
-                    <div class="tabs">
-                        <button class="tab active" data-tab="english">English</button>
-                        <button class="tab" data-tab="original">Original</button>
-                    </div>
-                    <span id="single-lang-label" style="display:none; font-size:0.85rem; font-weight:500; color:var(--text-heading); padding:0 8px;">English</span>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span id="save-status"></span>
-                        <button id="transcribe-btn" class="btn btn-primary" style="display:none">Transcribe</button>
-                        <button id="cleanup-btn" class="btn btn-subtle" title="Remove extra blank lines">Clean up</button>
-                        <button id="close-note-btn" class="btn btn-subtle" title="Close note">&times;</button>
-                        <button id="save-btn" class="btn btn-save" style="display:none">Save</button>
-                    </div>
+        <!-- Active editor -->
+        <div id="editor-active">
+            <!-- Toolbar -->
+            <div id="editor-toolbar">
+                <button class="toolbar-btn" data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+                <button class="toolbar-btn" data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+                <button class="toolbar-btn" data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
+                <button class="toolbar-btn" data-cmd="strikeThrough" title="Strikethrough"><s>S</s></button>
+                <div class="toolbar-sep"></div>
+                <button class="toolbar-btn" data-block="H1" title="Heading 1">H1</button>
+                <button class="toolbar-btn" data-block="H2" title="Heading 2">H2</button>
+                <button class="toolbar-btn" data-block="H3" title="Heading 3">H3</button>
+                <div class="toolbar-sep"></div>
+                <button class="toolbar-btn" data-cmd="insertUnorderedList" title="Bullet List">&#8226; List</button>
+                <button class="toolbar-btn" data-cmd="insertOrderedList" title="Numbered List">1. List</button>
+                <div class="toolbar-sep"></div>
+                <button class="toolbar-btn" id="cleanup-btn" title="Remove extra blank lines">Clean up</button>
+                <div class="toolbar-spacer"></div>
+                <button class="toolbar-btn" id="topicmap-toggle" title="Toggle Topic Map">Topic Map</button>
+            </div>
+
+            <!-- Note title -->
+            <div id="note-title-bar">
+                <input id="note-title" type="text" placeholder="Note title...">
+            </div>
+
+            <!-- Metadata -->
+            <div id="note-meta">
+                <div class="meta-item">
+                    <span class="meta-label">Created:</span>
+                    <span id="meta-created">—</span>
                 </div>
-                <div class="text-area-wrap">
-                    <div id="text-english" class="text-editor" contenteditable="true" data-placeholder="English translation..."></div>
-                    <div id="text-original" class="text-editor hidden" contenteditable="true" data-placeholder="Original transcription..."></div>
+                <div class="meta-item">
+                    <span class="meta-label">Notebook:</span>
+                    <select id="meta-notebook-select"></select>
+                </div>
+                <div class="meta-item" id="meta-tags-wrap" style="display:none">
+                    <span class="meta-label">Tags:</span>
+                    <span id="meta-tags"></span>
+                </div>
+                <span id="save-status"></span>
+            </div>
+
+            <!-- Audio bar -->
+            <div id="audio-bar">
+                <audio id="audio-player" controls preload="none"></audio>
+            </div>
+
+            <!-- Progress bar -->
+            <div id="progress-bar">
+                <div id="progress-message"></div>
+                <div id="progress-track"><div id="progress-fill"></div></div>
+                <div id="progress-info"><span id="progress-percent"></span><span id="progress-elapsed"></span></div>
+            </div>
+
+            <!-- Tabs -->
+            <div id="tab-bar">
+                <button class="tab active" data-tab="english">English</button>
+                <button class="tab" data-tab="original">Original</button>
+                <span id="single-lang-label">English</span>
+                <div class="tab-actions">
+                    <button id="transcribe-btn" class="btn btn-primary" style="display:none">Transcribe</button>
+                    <button id="save-btn" class="btn btn-save" style="display:none">Save</button>
                 </div>
             </div>
-            <!-- Graph panel (always visible) -->
-            <div id="graph-panel">
-                <div id="graph-panel-header">
-                    <h2>Topic Map</h2>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span id="topicmap-stale-label" style="display:none; font-size:0.72rem; color:#c88a20; font-weight:500;">out of date</span>
-                        <button id="build-topicmap-btn" class="btn btn-primary">Build Map</button>
-                    </div>
-                </div>
-                <div id="topicmap-wrap">
-                    <div id="topicmap-placeholder">Click "Build Map" to analyze all files</div>
-                    <div id="topicmap-container"></div>
-                    <div id="topicmap-tooltip"></div>
-                </div>
+
+            <!-- Editor content -->
+            <div class="editor-wrap">
+                <div id="text-english" class="text-editor" contenteditable="true" data-placeholder="Start writing..."></div>
+                <div id="text-original" class="text-editor hidden" contenteditable="true" data-placeholder="Original transcription..."></div>
             </div>
+        </div>
+    </div>
+
+    <!-- Topic Map Panel (collapsible right) -->
+    <div id="topicmap-panel">
+        <div id="tm-header">
+            <h2>Topic Map</h2>
+            <button class="toolbar-btn" id="topicmap-close" title="Close">&times;</button>
+        </div>
+        <div id="tm-actions">
+            <button id="build-topicmap-btn" class="btn btn-primary" style="font-size:0.75rem">Build Map</button>
+            <span id="topicmap-stale-label" style="display:none; font-size:0.7rem; color:#c88a20; font-weight:500;">out of date</span>
+        </div>
+        <div id="topicmap-wrap">
+            <div id="topicmap-placeholder">Click "Build Map" to analyze all files</div>
+            <div id="topicmap-container"></div>
+            <div id="topicmap-tooltip"></div>
         </div>
     </div>
 
     <script>
-        // Elements
-        const dropZone = document.getElementById("drop-zone");
-        const fileInput = document.getElementById("file-input");
+        // --- Element Refs ---
+        const notebooksPanel = document.getElementById("notebooks-panel");
+        const nbAllItem = document.getElementById("nb-all");
+        const nbAllCount = document.getElementById("nb-all-count");
+        const nbItems = document.getElementById("nb-items");
+        const noteList = document.getElementById("note-list");
+        const notesTitle = document.getElementById("notes-title");
+        const notesCount = document.getElementById("notes-count");
+        const searchInput = document.getElementById("search-input");
+        const editorEmpty = document.getElementById("editor-empty");
+        const editorActive = document.getElementById("editor-active");
+        const noteTitle = document.getElementById("note-title");
+        const metaCreated = document.getElementById("meta-created");
+        const metaNotebookSelect = document.getElementById("meta-notebook-select");
+        const metaTagsWrap = document.getElementById("meta-tags-wrap");
+        const metaTags = document.getElementById("meta-tags");
+        const saveStatus = document.getElementById("save-status");
+        const saveBtn = document.getElementById("save-btn");
+        const textOriginal = document.getElementById("text-original");
+        const textEnglish = document.getElementById("text-english");
+        const audioBar = document.getElementById("audio-bar");
+        const audioPlayer = document.getElementById("audio-player");
         const progressBarEl = document.getElementById("progress-bar");
         const progressMessage = document.getElementById("progress-message");
         const progressFill = document.getElementById("progress-fill");
         const progressPercent = document.getElementById("progress-percent");
         const progressElapsed = document.getElementById("progress-elapsed");
-        const textPanel = document.getElementById("text-panel");
-        const textOriginal = document.getElementById("text-original");
-        const textEnglish = document.getElementById("text-english");
-        const saveBtn = document.getElementById("save-btn");
-        const saveStatus = document.getElementById("save-status");
-        const libraryList = document.getElementById("library-list");
-        const audioBar = document.getElementById("audio-bar");
-        const audioPlayer = document.getElementById("audio-player");
-        const fileTitle = document.getElementById("file-title");
         const errorDiv = document.getElementById("error");
-        const closeNoteBtn = document.getElementById("close-note-btn");
-
+        const tabBar = document.getElementById("tab-bar");
         const tabs = document.querySelectorAll("[data-tab]");
-        const tabsContainer = document.querySelector(".tabs");
+        const tabsContainer = tabBar;
         const singleLangLabel = document.getElementById("single-lang-label");
+        const dropZone = document.getElementById("drop-zone-mini");
+        const fileInput = document.getElementById("file-input");
+        const enexInput = document.getElementById("enex-input");
+        const topicmapPanel = document.getElementById("topicmap-panel");
         const topicmapWrap = document.getElementById("topicmap-wrap");
         const topicmapContainer = document.getElementById("topicmap-container");
         const topicmapPlaceholder = document.getElementById("topicmap-placeholder");
         const topicmapTooltip = document.getElementById("topicmap-tooltip");
+        const buildTopicmapBtn = document.getElementById("build-topicmap-btn");
+        const topicmapStaleLabel = document.getElementById("topicmap-stale-label");
 
+        // --- State ---
         let currentFileId = null;
+        let currentNotebook = null; // null = "All Notes"
         let saveTimeout = null;
+        let titleSaveTimeout = null;
+        let searchTimeout = null;
         let activeTab = "english";
         let topicmapNetwork = null;
         let topicmapNodes = null;
@@ -513,27 +830,38 @@
         let hoveredEdgeIds = [];
         let lastTopicMapData = null;
         let topicMapStale = false;
+        let allNotebooks = [];
 
         // --- Rich text helpers ---
         function setEditorText(el, text) {
             if (!text) { el.innerHTML = ""; return; }
-            // If it already contains HTML tags, use as-is
             if (/<[a-z][\s\S]*>/i.test(text)) {
                 el.innerHTML = text;
             } else {
-                // Plain text: convert to paragraphs
                 const paragraphs = text.split(/\n\n+/);
                 el.innerHTML = paragraphs.map(p =>
                     "<p>" + escapeHtml(p).replace(/\n/g, "<br>") + "</p>"
                 ).join("");
             }
         }
-        function getEditorText(el) {
-            return el.innerText;
-        }
-        function getEditorHtml(el) {
-            return el.innerHTML;
-        }
+        function getEditorText(el) { return el.innerText; }
+        function getEditorHtml(el) { return el.innerHTML; }
+
+        // --- Formatting Toolbar ---
+        document.querySelectorAll("[data-cmd]").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                document.execCommand(btn.dataset.cmd, false, null);
+                textEnglish.focus();
+            });
+        });
+        document.querySelectorAll("[data-block]").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                document.execCommand("formatBlock", false, btn.dataset.block);
+                textEnglish.focus();
+            });
+        });
 
         // --- Tabs ---
         tabs.forEach(tab => {
@@ -547,18 +875,15 @@
         });
 
         // --- Clean up whitespace ---
-        const cleanupBtn = document.getElementById("cleanup-btn");
-        cleanupBtn.addEventListener("click", () => {
+        document.getElementById("cleanup-btn").addEventListener("click", () => {
             const editor = activeTab === "original" ? textOriginal : textEnglish;
             let text = getEditorText(editor);
             const lines = text.split("\n");
             const result = [];
             for (let i = 0; i < lines.length; i++) {
                 const trimmed = lines[i].trim();
-                if (trimmed === "") continue; // skip empty lines
-                // If line is just a bullet/number prefix, merge with next non-empty line
-                if (/^[-•–—\*]\s*$|^\d+[.)]\s*$/.test(trimmed)) {
-                    // Find next non-empty line and prepend bullet
+                if (trimmed === "") continue;
+                if (/^[-\u2022\u2013\u2014\*]\s*$|^\d+[.)]\s*$/.test(trimmed)) {
                     for (let j = i + 1; j < lines.length; j++) {
                         if (lines[j].trim() !== "") {
                             lines[j] = trimmed + " " + lines[j].trim();
@@ -577,24 +902,223 @@
             }
         });
 
-        // --- Close Note ---
-        closeNoteBtn.addEventListener("click", () => {
-            resetUI();
-            document.querySelectorAll(".lib-item").forEach(el => el.classList.remove("active"));
+        // --- Notebooks ---
+        async function loadNotebooks() {
+            try {
+                const res = await fetch("/notebooks");
+                const data = await res.json();
+                allNotebooks = data.notebooks || [];
+                nbAllCount.textContent = data.total;
+
+                nbItems.innerHTML = "";
+                if (allNotebooks.length === 0) {
+                    nbItems.innerHTML = '<div style="padding:6px 14px;font-size:0.75rem;color:var(--text-faint)">No notebooks yet</div>';
+                }
+                allNotebooks.forEach(nb => {
+                    const div = document.createElement("div");
+                    div.className = "nb-item" + (currentNotebook === nb.name ? " active" : "");
+                    div.dataset.nb = nb.name;
+                    div.innerHTML = `
+                        <span class="nb-name">${escapeHtml(nb.name)}</span>
+                        <span class="nb-count">${nb.note_count}</span>
+                        <button class="nb-delete" title="Delete notebook">&times;</button>
+                    `;
+                    div.addEventListener("click", (e) => {
+                        if (e.target.classList.contains("nb-delete")) return;
+                        selectNotebook(nb.name);
+                    });
+                    div.querySelector(".nb-delete").addEventListener("click", async (e) => {
+                        e.stopPropagation();
+                        if (!confirm(`Delete notebook "${nb.name}"? Notes will be moved out.`)) return;
+                        await fetch("/notebooks/delete", {
+                            method: "POST",
+                            headers: {"Content-Type": "application/json"},
+                            body: JSON.stringify({name: nb.name})
+                        });
+                        if (currentNotebook === nb.name) selectNotebook(null);
+                        else { loadNotebooks(); loadNoteList(); }
+                    });
+                    nbItems.appendChild(div);
+                });
+
+                // Update notebook select in metadata
+                updateNotebookSelect();
+            } catch (e) { console.warn("Failed to load notebooks:", e); }
+        }
+
+        function updateNotebookSelect() {
+            const val = metaNotebookSelect.value;
+            metaNotebookSelect.innerHTML = "";
+            allNotebooks.forEach(nb => {
+                const opt = document.createElement("option");
+                opt.value = nb.name;
+                opt.textContent = nb.name;
+                metaNotebookSelect.appendChild(opt);
+            });
+            metaNotebookSelect.value = val || "My Notebook";
+        }
+
+        nbAllItem.addEventListener("click", () => selectNotebook(null));
+
+        function selectNotebook(name) {
+            currentNotebook = name;
+            notesTitle.textContent = name || "All Notes";
+            // Update active state
+            document.querySelectorAll(".nb-item").forEach(el => {
+                el.classList.toggle("active", el.dataset.nb === (name || "all"));
+            });
+            nbAllItem.classList.toggle("active", !name);
+            loadNoteList();
+        }
+
+        document.getElementById("new-nb-btn").addEventListener("click", async () => {
+            const name = prompt("Notebook name:");
+            if (!name || !name.trim()) return;
+            const res = await fetch("/notebooks", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({name: name.trim()})
+            });
+            const data = await res.json();
+            if (!res.ok) { showError(data.error); return; }
+            await loadNotebooks();
+            selectNotebook(name.trim());
+        });
+
+        metaNotebookSelect.addEventListener("change", async () => {
+            if (!currentFileId) return;
+            const nb = metaNotebookSelect.value;
+            if (!nb) return;
+            await fetch(`/library/${currentFileId}/notebook`, {
+                method: "PUT",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({notebook: nb})
+            });
+            loadNotebooks();
+            loadNoteList();
+        });
+
+        // --- Note List ---
+        async function loadNoteList() {
+            let url = "/library";
+            const params = new URLSearchParams();
+            if (currentNotebook) params.set("notebook", currentNotebook);
+            const q = searchInput.value.trim();
+            if (q) params.set("q", q);
+            if (params.toString()) url += "?" + params;
+
+            const res = await fetch(url);
+            const files = await res.json();
+            noteList.innerHTML = "";
+            notesCount.textContent = files.length;
+
+            if (files.length === 0) {
+                noteList.innerHTML = '<li style="padding:20px 14px;text-align:center;color:var(--text-faint);font-size:0.82rem">No notes found</li>';
+                return;
+            }
+
+            for (const f of files) {
+                const li = document.createElement("li");
+                li.className = "note-card" + (f.id === currentFileId ? " active" : "");
+
+                const date = new Date(f.created_at).toLocaleDateString();
+                const typeLabel = f.duration ? formatDuration(f.duration) : "Note";
+                let tagsHtml = "";
+                if (f.tags) {
+                    try {
+                        const tags = JSON.parse(f.tags);
+                        if (tags.length > 0) {
+                            tagsHtml = '<div class="note-card-tags">' + tags.slice(0, 3).map(t =>
+                                '<span class="note-tag">' + escapeHtml(t) + '</span>'
+                            ).join("") + (tags.length > 3 ? '<span class="note-tag">+' + (tags.length - 3) + '</span>' : '') + '</div>';
+                        }
+                    } catch (_) {}
+                }
+
+                li.innerHTML = `
+                    <div class="note-card-title">${escapeHtml(f.original_name)}</div>
+                    <div class="note-card-preview">${escapeHtml(f.preview || "")}</div>
+                    <div class="note-card-meta">
+                        <span>${date} &middot; <span class="note-type">${typeLabel}</span></span>
+                        <button class="note-delete" data-id="${f.id}" title="Delete">&times;</button>
+                    </div>
+                    ${tagsHtml}
+                `;
+
+                li.addEventListener("click", (e) => {
+                    if (e.target.classList.contains("note-delete")) return;
+                    openFile(f.id);
+                });
+                li.querySelector(".note-delete").addEventListener("click", async (e) => {
+                    e.stopPropagation();
+                    if (!confirm(`Delete "${f.original_name}"?`)) return;
+                    await fetch(`/library/${f.id}`, { method: "DELETE" });
+                    if (currentFileId === f.id) resetUI();
+                    loadNoteList();
+                    loadNotebooks();
+                });
+                noteList.appendChild(li);
+            }
+        }
+
+        // Search
+        searchInput.addEventListener("input", () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => loadNoteList(), 300);
         });
 
         // --- New Note ---
         document.getElementById("new-note-btn").addEventListener("click", async () => {
             try {
-                const res = await fetch("/library/note", { method: "POST" });
+                const res = await fetch("/library/note", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({notebook: currentNotebook})
+                });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || "Failed");
-                await loadLibrary();
+                await loadNoteList();
+                await loadNotebooks();
                 openFile(data.file_id);
             } catch (e) { showError(e.message); }
         });
 
-        // --- Drag & Drop ---
+        // --- Import Evernote ---
+        document.getElementById("import-enex-btn").addEventListener("click", () => enexInput.click());
+        enexInput.addEventListener("change", async () => {
+            if (enexInput.files.length === 0) return;
+            const file = enexInput.files[0];
+            enexInput.value = "";
+
+            progressBarEl.style.display = "block";
+            progressMessage.textContent = `Importing ${file.name}...`;
+            progressFill.style.width = "0%";
+            editorEmpty.style.display = "none";
+            editorActive.classList.add("visible");
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                const res = await fetch("/import-enex", { method: "POST", body: formData });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Import failed");
+
+                progressFill.style.width = "100%";
+                progressMessage.textContent = `Imported ${data.imported} note${data.imported !== 1 ? 's' : ''}`;
+                setTimeout(() => { progressBarEl.style.display = "none"; }, 3000);
+
+                await loadNoteList();
+                await loadNotebooks();
+                if (data.notes && data.notes.length > 0) openFile(data.notes[0].file_id);
+            } catch (err) {
+                progressBarEl.style.display = "none";
+                showError(err.message);
+                if (!currentFileId) { editorEmpty.style.display = "flex"; editorActive.classList.remove("visible"); }
+            }
+        });
+
+        // --- File Upload ---
         dropZone.addEventListener("click", () => fileInput.click());
         dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("drag-over"); });
         dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
@@ -604,54 +1128,20 @@
         });
         fileInput.addEventListener("change", () => {
             if (fileInput.files.length > 0) uploadFile(fileInput.files[0]);
+            fileInput.value = "";
         });
 
-        // --- Text editing & auto-save ---
-        function setupAutoSave(el, field) {
-            el.addEventListener("input", () => {
-                if (!currentFileId) return;
-                saveBtn.style.display = "inline-block";
-                saveStatus.textContent = "";
-                clearTimeout(saveTimeout);
-                saveTimeout = setTimeout(() => saveText(), 2000);
-            });
-        }
-        setupAutoSave(textOriginal, "text");
-        setupAutoSave(textEnglish, "text_en");
-
-        saveBtn.addEventListener("click", () => saveText());
-
-        async function saveText() {
-            if (!currentFileId) return;
-            removeHighlightsFromEditor();
-            clearTimeout(saveTimeout);
-            saveStatus.textContent = "Saving...";
-            saveBtn.style.display = "none";
-            try {
-                await fetch(`/library/${currentFileId}/text`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(
-                        tabsContainer.style.display === "none"
-                            ? { text: getEditorHtml(textEnglish) }
-                            : { text: getEditorHtml(textOriginal), text_en: getEditorHtml(textEnglish) }
-                    ),
-                });
-                saveStatus.textContent = "Saved";
-                setTimeout(() => { saveStatus.textContent = ""; }, 2000);
-                if (lastTopicMapData) {
-                    topicMapStale = true;
-                    updateTopicMapButton();
-                }
-            } catch (e) {
-                saveStatus.textContent = "Save failed";
-                saveBtn.style.display = "inline-block";
-            }
-        }
-
-        // --- Upload (just save to library) ---
         async function uploadFile(file) {
-            resetUI();
+            if (file.name.toLowerCase().endsWith(".enex")) {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                enexInput.files = dt.files;
+                enexInput.dispatchEvent(new Event("change"));
+                return;
+            }
+
+            editorEmpty.style.display = "none";
+            editorActive.classList.add("visible");
             progressBarEl.style.display = "block";
             progressMessage.textContent = `Uploading ${file.name}...`;
 
@@ -665,20 +1155,86 @@
                 try { result = JSON.parse(text); } catch (_) { throw new Error("Server error during upload"); }
                 if (!response.ok) throw new Error(result.error || "Upload failed");
                 progressBarEl.style.display = "none";
-                await loadLibrary();
+                await loadNoteList();
+                await loadNotebooks();
                 openFile(result.file_id);
             } catch (err) {
                 showError(err.message);
                 progressBarEl.style.display = "none";
+                if (!currentFileId) { editorEmpty.style.display = "flex"; editorActive.classList.remove("visible"); }
             }
         }
 
-        // --- Transcribe (SSE for a library file) ---
+        // --- Auto-save text ---
+        function setupAutoSave(el) {
+            el.addEventListener("input", () => {
+                if (!currentFileId) return;
+                saveBtn.style.display = "inline-block";
+                saveStatus.textContent = "";
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => saveText(), 2000);
+            });
+        }
+        setupAutoSave(textOriginal);
+        setupAutoSave(textEnglish);
+        saveBtn.addEventListener("click", () => saveText());
+
+        async function saveText() {
+            if (!currentFileId) return;
+            removeHighlightsFromEditor();
+            clearTimeout(saveTimeout);
+            saveStatus.textContent = "Saving...";
+            saveBtn.style.display = "none";
+            try {
+                const isSingle = singleLangLabel.style.display !== "none";
+                await fetch(`/library/${currentFileId}/text`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(
+                        isSingle
+                            ? { text: getEditorHtml(textEnglish) }
+                            : { text: getEditorHtml(textOriginal), text_en: getEditorHtml(textEnglish) }
+                    ),
+                });
+                saveStatus.textContent = "Saved";
+                setTimeout(() => { saveStatus.textContent = ""; }, 2000);
+                if (lastTopicMapData) { topicMapStale = true; updateTopicMapButton(); }
+                // Refresh note list to update preview
+                loadNoteList();
+            } catch (e) {
+                saveStatus.textContent = "Save failed";
+                saveBtn.style.display = "inline-block";
+            }
+        }
+
+        // --- Note title rename ---
+        noteTitle.addEventListener("input", () => {
+            clearTimeout(titleSaveTimeout);
+            titleSaveTimeout = setTimeout(async () => {
+                if (!currentFileId) return;
+                const name = noteTitle.value.trim();
+                if (!name) return;
+                await fetch(`/library/${currentFileId}/rename`, {
+                    method: "PUT",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({name})
+                });
+                loadNoteList();
+            }, 1000);
+        });
+
+        // --- Transcribe ---
+        const transcribeBtn = document.getElementById("transcribe-btn");
+        transcribeBtn.addEventListener("click", () => {
+            if (!currentFileId) return;
+            transcribeBtn.style.display = "none";
+            transcribeFile(currentFileId);
+        });
+
         async function transcribeFile(fileId) {
             progressBarEl.style.display = "block";
             progressMessage.textContent = "Starting transcription...";
             progressFill.style.width = "0%";
-            textPanel.style.display = "flex";
 
             const startTime = Date.now();
             const elapsedTimer = setInterval(() => {
@@ -738,23 +1294,118 @@
 
                 audioPlayer.src = `/library/${data.file_id}/audio`;
                 audioBar.style.display = "flex";
-
-                loadLibrary();
+                loadNoteList();
             }
         }
 
-        // --- Transcribe button ---
-        const transcribeBtn = document.getElementById("transcribe-btn");
-        transcribeBtn.addEventListener("click", () => {
-            if (!currentFileId) return;
+        // --- Open & Close ---
+        async function openFile(fileId) {
+            resetUI();
+            const res = await fetch(`/library/${fileId}`);
+            const data = await res.json();
+            currentFileId = fileId;
+
+            editorEmpty.style.display = "none";
+            editorActive.classList.add("visible");
+
+            // Title
+            noteTitle.value = data.original_name || "";
+
+            // Metadata
+            metaCreated.textContent = new Date(data.created_at).toLocaleString();
+            metaNotebookSelect.value = data.notebook || "My Notebook";
+
+            // Tags
+            if (data.tags) {
+                try {
+                    const tags = JSON.parse(data.tags);
+                    if (tags.length > 0) {
+                        metaTags.textContent = tags.join(", ");
+                        metaTagsWrap.style.display = "flex";
+                    }
+                } catch (_) {}
+            }
+
+            // Text content
+            const orig = data.transcription || "";
+            const en = data.transcription_en || "";
+            const singleLang = !en || en === orig;
+
+            if (singleLang) {
+                setEditorText(textEnglish, orig);
+                setEditorText(textOriginal, "");
+                tabs.forEach(t => t.style.display = "none");
+                singleLangLabel.style.display = "inline";
+            } else {
+                setEditorText(textOriginal, orig);
+                setEditorText(textEnglish, en);
+                tabs.forEach(t => t.style.display = "");
+                singleLangLabel.style.display = "none";
+            }
+
+            // Audio
+            if (data.mp3_path) {
+                audioPlayer.src = `/library/${fileId}/audio`;
+                audioBar.style.display = "flex";
+            }
+
+            // Transcribe button
+            if (!data.transcription && data.mp3_path) {
+                transcribeBtn.style.display = "inline-block";
+            }
+
+            // Highlight in note list
+            document.querySelectorAll(".note-card").forEach(el => el.classList.remove("active"));
+            document.querySelectorAll(".note-card").forEach(el => {
+                if (el.querySelector(`[data-id="${fileId}"]`)) el.classList.add("active");
+            });
+        }
+
+        function resetUI() {
+            removeHighlightsFromEditor();
+            errorDiv.style.display = "none";
+            editorActive.classList.remove("visible");
+            editorEmpty.style.display = "flex";
+            audioBar.style.display = "none";
+            progressBarEl.style.display = "none";
+            progressFill.style.width = "0%";
+            progressPercent.textContent = "";
+            progressElapsed.textContent = "";
+            textOriginal.innerHTML = "";
+            textEnglish.innerHTML = "";
+            noteTitle.value = "";
+            metaCreated.textContent = "—";
+            metaNotebookSelect.value = "My Notebook";
+            metaTagsWrap.style.display = "none";
+            metaTags.textContent = "";
+            currentFileId = null;
+            saveBtn.style.display = "none";
             transcribeBtn.style.display = "none";
-            transcribeFile(currentFileId);
+            saveStatus.textContent = "";
+            tabs.forEach(t => t.style.display = "");
+            singleLangLabel.style.display = "none";
+            topicmapTooltip.style.display = "none";
+            updateTopicMapButton();
+            audioPlayer.pause();
+            audioPlayer.src = "";
+            activeTab = "english";
+            tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === "english"));
+            textEnglish.classList.remove("hidden");
+            textOriginal.classList.add("hidden");
+        }
+
+        // --- Topic Map Toggle ---
+        document.getElementById("topicmap-toggle").addEventListener("click", () => {
+            topicmapPanel.classList.toggle("visible");
+            if (topicmapPanel.classList.contains("visible") && topicmapNetwork) {
+                setTimeout(() => topicmapNetwork.fit(), 100);
+            }
+        });
+        document.getElementById("topicmap-close").addEventListener("click", () => {
+            topicmapPanel.classList.remove("visible");
         });
 
-        // --- Topic Map state ---
-        const buildTopicmapBtn = document.getElementById("build-topicmap-btn");
-        const topicmapStaleLabel = document.getElementById("topicmap-stale-label");
-
+        // --- Topic Map ---
         function updateTopicMapButton() {
             if (topicMapStale) {
                 buildTopicmapBtn.textContent = "Update Map";
@@ -781,15 +1432,11 @@
                 topicMapStale = result.stale;
                 renderTopicMap(lastTopicMapData);
                 updateTopicMapButton();
-            } catch (e) {
-                console.warn("Failed to load cached topic map:", e);
-            }
+            } catch (e) { console.warn("Failed to load cached topic map:", e); }
         }
 
-        // --- Build Topic Map ---
         buildTopicmapBtn.addEventListener("click", async () => {
             buildTopicmapBtn.disabled = true;
-
             progressBarEl.style.display = "block";
             progressMessage.textContent = "Building topic map across all files...";
             progressFill.style.width = "0%";
@@ -802,7 +1449,7 @@
             }, 300);
 
             topicmapPlaceholder.style.display = "flex";
-            topicmapPlaceholder.innerHTML = '<div class="spinner"></div> Analyzing all transcriptions...';
+            topicmapPlaceholder.innerHTML = '<div class="spinner"></div> Analyzing...';
 
             try {
                 const response = await fetch("/build-topic-map", {
@@ -822,6 +1469,8 @@
                 topicMapStale = false;
                 renderTopicMap(data);
                 updateTopicMapButton();
+                // Show the panel
+                topicmapPanel.classList.add("visible");
             } catch (err) {
                 clearInterval(tmTimer);
                 progressBarEl.style.display = "none";
@@ -837,11 +1486,9 @@
             return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
         }
 
-        // --- Topic Map ---
         function renderTopicMap(data) {
             topicmapPlaceholder.style.display = "none";
             topicmapTooltip.style.display = "none";
-
             if (topicmapNetwork) { topicmapNetwork.destroy(); topicmapNetwork = null; }
 
             const fileLookup = data.file_lookup || {};
@@ -852,17 +1499,14 @@
                 const fileCount = (t.file_ids || []).length;
                 const size = MIN_SIZE + ((fileCount - 1) / Math.max(maxFiles - 1, 1)) * (MAX_SIZE - MIN_SIZE);
                 return {
-                    id: t.id, label: t.label, value: fileCount, size: size,
-                    shape: "dot",
+                    id: t.id, label: t.label, value: fileCount, size: size, shape: "dot",
                     color: {
                         background: getVar("--graph-node"), border: getVar("--graph-node-border"),
                         highlight: { background: getVar("--graph-node-highlight"), border: getVar("--graph-node-border") },
                         hover: { background: getVar("--graph-node-highlight"), border: getVar("--graph-node-border") },
                     },
                     font: { color: getVar("--text-primary"), size: 12 + Math.min(fileCount, 6), face: "inherit" },
-                    borderWidth: 2,
-                    file_ids: t.file_ids || [],
-                    keywords: t.keywords || [],
+                    borderWidth: 2, file_ids: t.file_ids || [], keywords: t.keywords || [],
                 };
             }));
 
@@ -886,11 +1530,9 @@
 
             topicmapNetwork.on("click", function (params) {
                 if (params.nodes.length === 0) { topicmapTooltip.style.display = "none"; return; }
-
                 const nodeId = params.nodes[0];
                 const nodeData = topicmapNodes.get(nodeId);
                 const fileIds = nodeData.file_ids || [];
-
                 const fileListHtml = fileIds.map(fid => {
                     const name = fileLookup[fid] || fid;
                     return '<li><a data-file-id="' + escapeHtml(fid) + '">' + escapeHtml(name) + '</a></li>';
@@ -904,9 +1546,8 @@
                 const rect = topicmapContainer.getBoundingClientRect();
                 let left = params.event.center.x - rect.left + 15;
                 let top = params.event.center.y - rect.top + 15;
-                if (left + 260 > rect.width) left = left - 280;
+                if (left + 240 > rect.width) left = left - 260;
                 if (top + 200 > rect.height) top = top - 200;
-
                 topicmapTooltip.style.left = left + "px";
                 topicmapTooltip.style.top = top + "px";
                 topicmapTooltip.style.display = "block";
@@ -922,12 +1563,9 @@
 
             topicmapNetwork.on("deselectNode", () => { topicmapTooltip.style.display = "none"; });
 
-            // --- Hover: highlight node edges + text passages ---
             topicmapNetwork.on("hoverNode", function (params) {
                 const nodeId = params.node;
                 const nodeData = topicmapNodes.get(nodeId);
-
-                // Highlight connected edges
                 hoveredEdgeIds = topicmapNetwork.getConnectedEdges(nodeId);
                 hoveredEdgeIds.forEach(eid => {
                     topicmapEdges.update({
@@ -936,14 +1574,11 @@
                         width: 2.5,
                     });
                 });
-
-                // Highlight keywords in the open note (fall back to label if no keywords)
                 const kw = (nodeData.keywords && nodeData.keywords.length > 0) ? nodeData.keywords : [nodeData.label];
                 highlightKeywordsInEditor(kw, nodeData.file_ids || []);
             });
 
             topicmapNetwork.on("blurNode", function () {
-                // Restore edges
                 hoveredEdgeIds.forEach(eid => {
                     topicmapEdges.update({
                         id: eid,
@@ -952,8 +1587,6 @@
                     });
                 });
                 hoveredEdgeIds = [];
-
-                // Remove text highlights
                 removeHighlightsFromEditor();
             });
         }
@@ -962,42 +1595,31 @@
         function highlightKeywordsInEditor(keywords, fileIds) {
             if (!currentFileId || !fileIds.includes(currentFileId)) return;
             if (!keywords || keywords.length === 0) return;
-
             const escaped = keywords.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
             const regex = new RegExp('(' + escaped.join('|') + ')', 'gi');
-
-            // Highlight both editors (Original + English)
             [textOriginal, textEnglish].forEach(editor => {
                 const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null, false);
                 const textNodes = [];
                 while (walker.nextNode()) textNodes.push(walker.currentNode);
-
                 for (const textNode of textNodes) {
                     const text = textNode.textContent;
                     if (!regex.test(text)) continue;
                     regex.lastIndex = 0;
-
                     const fragment = document.createDocumentFragment();
                     let lastIndex = 0;
                     let match;
                     while ((match = regex.exec(text)) !== null) {
-                        if (match.index > lastIndex) {
-                            fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
-                        }
+                        if (match.index > lastIndex) fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
                         const mark = document.createElement('mark');
                         mark.className = 'topic-highlight';
                         mark.textContent = match[0];
                         fragment.appendChild(mark);
                         lastIndex = regex.lastIndex;
                     }
-                    if (lastIndex < text.length) {
-                        fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
-                    }
+                    if (lastIndex < text.length) fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
                     textNode.parentNode.replaceChild(fragment, textNode);
                 }
             });
-
-            // Scroll to first highlight in the visible editor
             const visibleEditor = activeTab === "original" ? textOriginal : textEnglish;
             const firstMark = visibleEditor.querySelector('.topic-highlight');
             if (firstMark) firstMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1006,131 +1628,12 @@
         function removeHighlightsFromEditor() {
             [textOriginal, textEnglish].forEach(editor => {
                 const marks = editor.querySelectorAll('mark.topic-highlight');
-                marks.forEach(mark => {
-                    mark.parentNode.replaceChild(document.createTextNode(mark.textContent), mark);
-                });
+                marks.forEach(mark => mark.parentNode.replaceChild(document.createTextNode(mark.textContent), mark));
                 if (marks.length > 0) editor.normalize();
             });
         }
 
-        // --- Library ---
-        async function loadLibrary() {
-            const res = await fetch("/library");
-            const files = await res.json();
-            libraryList.innerHTML = "";
-
-            if (files.length === 0) {
-                libraryList.innerHTML = '<li class="lib-empty">No files yet</li>';
-                return;
-            }
-
-            for (const f of files) {
-                const li = document.createElement("li");
-                li.className = "lib-item" + (f.id === currentFileId ? " active" : "");
-                const dur = f.duration ? formatDuration(f.duration) : "Note";
-                const date = new Date(f.created_at).toLocaleDateString();
-                li.innerHTML = `
-                    <div class="lib-item-name">${escapeHtml(f.original_name)}</div>
-                    <div class="lib-item-meta">
-                        <span>${dur} &middot; ${date}</span>
-                        <button class="lib-delete" data-id="${f.id}">&times;</button>
-                    </div>
-                `;
-                li.addEventListener("click", (e) => {
-                    if (e.target.classList.contains("lib-delete")) return;
-                    openFile(f.id);
-                });
-                li.querySelector(".lib-delete").addEventListener("click", async (e) => {
-                    e.stopPropagation();
-                    if (confirm(`Delete "${f.original_name}"?`)) {
-                        await fetch(`/library/${f.id}`, { method: "DELETE" });
-                        if (currentFileId === f.id) { resetUI(); }
-                        loadLibrary();
-                    }
-                });
-                libraryList.appendChild(li);
-            }
-        }
-
-        async function openFile(fileId) {
-            resetUI();
-
-            const res = await fetch(`/library/${fileId}`);
-            const data = await res.json();
-
-            currentFileId = fileId;
-
-            // If no separate English translation, or texts match — single-language mode
-            const orig = data.transcription || "";
-            const en = data.transcription_en || "";
-            const singleLang = !en || en === orig;
-
-            if (singleLang) {
-                // Show original text in the English editor (it's already English)
-                setEditorText(textEnglish, orig);
-                setEditorText(textOriginal, "");
-                tabsContainer.style.display = "none";
-                singleLangLabel.style.display = "inline";
-            } else {
-                setEditorText(textOriginal, orig);
-                setEditorText(textEnglish, en);
-                tabsContainer.style.display = "flex";
-                singleLangLabel.style.display = "none";
-            }
-
-            fileTitle.textContent = data.original_name;
-            textPanel.style.display = "flex";
-
-            // Audio bar only for files with audio
-            if (data.mp3_path) {
-                audioPlayer.src = `/library/${fileId}/audio`;
-                audioBar.style.display = "flex";
-            }
-
-            // Show transcribe button only for audio files without transcription
-            if (!data.transcription && data.mp3_path) {
-                transcribeBtn.style.display = "inline-block";
-            }
-
-            // Highlight in sidebar
-            document.querySelectorAll(".lib-item").forEach(el => el.classList.remove("active"));
-            document.querySelectorAll(".lib-item").forEach(el => {
-                if (el.querySelector(`[data-id="${fileId}"]`)) el.classList.add("active");
-            });
-        }
-
-        function resetUI() {
-            removeHighlightsFromEditor();
-            errorDiv.style.display = "none";
-            textPanel.style.display = "none";
-            audioBar.style.display = "none";
-            progressBarEl.style.display = "none";
-            progressFill.style.width = "0%";
-            progressPercent.textContent = "";
-            progressElapsed.textContent = "";
-            textOriginal.innerHTML = "";
-            textEnglish.innerHTML = "";
-            currentFileId = null;
-            saveBtn.style.display = "none";
-            transcribeBtn.style.display = "none";
-            saveStatus.textContent = "";
-            tabsContainer.style.display = "flex";
-            singleLangLabel.style.display = "none";
-            topicmapTooltip.style.display = "none";
-            if (!lastTopicMapData) {
-                topicmapPlaceholder.style.display = "flex";
-                topicmapPlaceholder.textContent = 'Click "Build Map" to analyze all files';
-            }
-            updateTopicMapButton();
-            audioPlayer.pause();
-            audioPlayer.src = "";
-            // Reset to original tab
-            activeTab = "english";
-            tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === "english"));
-            textEnglish.classList.remove("hidden");
-            textOriginal.classList.add("hidden");
-        }
-
+        // --- Utility ---
         function showError(msg) {
             errorDiv.textContent = msg;
             errorDiv.style.display = "block";
@@ -1157,7 +1660,9 @@
         themeSelect.addEventListener("change", () => applyTheme(themeSelect.value));
         applyTheme(localStorage.getItem("stt-theme") || "light");
 
-        loadLibrary();
+        // --- Init ---
+        loadNotebooks();
+        loadNoteList();
         loadTopicMap();
     </script>
 </body>
