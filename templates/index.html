@@ -509,24 +509,71 @@
         .cmd-item .cmd-icon { width: 18px; text-align: center; font-size: 0.9rem; }
 
         /* --- Notebooks Panel --- */
+        /* --- Notebooks Panel (Evernote-style) --- */
         #nb-header {
-            padding: 16px 14px 8px; border-bottom: 1px solid var(--border);
+            padding: 14px 14px 0; display: flex; flex-direction: column; gap: 10px;
         }
-        #nb-header h1 {
-            font-size: 1.1rem; font-weight: 700; color: var(--text-heading); margin-bottom: 12px;
+        #nb-search-bar {
+            display: flex; align-items: center; gap: 6px; padding: 7px 10px;
+            background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
+            cursor: pointer; transition: border-color 0.15s;
         }
-        #nb-list { flex: 1; overflow-y: auto; padding: 6px 0; }
-        .nb-item {
-            padding: 7px 14px; font-size: 0.82rem; color: var(--text-secondary);
-            cursor: pointer; display: flex; justify-content: space-between; align-items: center;
-            transition: background 0.1s; border-left: 3px solid transparent;
+        #nb-search-bar:hover { border-color: var(--accent); }
+        #nb-search-bar .nb-search-icon { color: var(--text-faint); font-size: 0.85rem; }
+        #nb-search-bar .nb-search-label {
+            flex: 1; font-size: 0.82rem; color: var(--text-faint);
         }
-        .nb-item:hover { background: var(--bg-surface-hover); }
-        .nb-item.active {
-            background: var(--nb-active); color: var(--text-heading);
-            font-weight: 500; border-left-color: var(--accent);
+        #nb-search-bar .nb-search-shortcut {
+            font-size: 0.68rem; color: var(--text-faint); background: var(--bg-panel);
+            padding: 2px 6px; border-radius: 3px; border: 1px solid var(--border);
+            font-family: monospace;
         }
-        .nb-item .nb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        #nb-new-row {
+            display: flex; align-items: center; gap: 8px; padding-bottom: 6px;
+        }
+        #nb-new-note-btn {
+            display: flex; align-items: center; gap: 6px; padding: 8px 18px;
+            background: #2dbe56; color: #fff; border: none; border-radius: 20px;
+            font-size: 0.88rem; font-weight: 600; cursor: pointer;
+            transition: background 0.15s; box-shadow: 0 2px 6px rgba(45,190,86,0.3);
+        }
+        #nb-new-note-btn:hover { background: #26a84c; }
+        #nb-new-note-btn svg { width: 16px; height: 16px; fill: currentColor; }
+        #nb-more-btn {
+            width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+            background: var(--bg-surface); color: var(--text-muted); cursor: pointer;
+            display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+            transition: border-color 0.15s;
+        }
+        #nb-more-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .nb-more-menu {
+            display: none; position: absolute; top: 100%; left: 0; z-index: 100;
+            background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15); min-width: 180px; padding: 4px 0;
+        }
+        .nb-more-menu.visible { display: block; }
+        .nb-more-menu button {
+            display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+            padding: 8px 14px; border: none; background: none; cursor: pointer;
+            font-size: 0.80rem; color: var(--text-secondary);
+        }
+        .nb-more-menu button:hover { background: var(--bg-surface-hover); }
+        #nb-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+        .nb-nav-item {
+            padding: 8px 14px; font-size: 0.88rem; color: var(--text-secondary);
+            cursor: pointer; display: flex; align-items: center; gap: 10px;
+            transition: background 0.1s; border-radius: 6px; margin: 1px 8px;
+        }
+        .nb-nav-item:hover { background: var(--bg-surface-hover); }
+        .nb-nav-item.active {
+            background: var(--nb-active); color: var(--text-heading); font-weight: 500;
+        }
+        .nb-nav-item .nb-nav-icon {
+            width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+            color: var(--text-muted); font-size: 1.05rem; flex-shrink: 0;
+        }
+        .nb-nav-item.active .nb-nav-icon { color: var(--text-heading); }
+        .nb-nav-item .nb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
         .nb-count {
             font-size: 0.7rem; color: var(--text-muted); background: var(--bg-surface);
             padding: 1px 6px; border-radius: 8px; min-width: 20px; text-align: center;
@@ -536,24 +583,39 @@
             font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em;
             color: var(--text-faint); padding: 8px 14px 4px; font-weight: 600;
         }
+        /* Legacy nb-item for notebook sub-items */
+        .nb-item {
+            padding: 6px 14px 6px 26px; font-size: 0.80rem; color: var(--text-secondary);
+            cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+            transition: background 0.1s; border-left: 3px solid transparent;
+        }
+        .nb-item:hover { background: var(--bg-surface-hover); }
+        .nb-item.active {
+            background: var(--nb-active); color: var(--text-heading);
+            font-weight: 500; border-left-color: var(--accent);
+        }
+        .nb-item .nb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
         .nb-item .nb-delete {
             display: none; background: none; border: none; color: var(--text-faint);
             cursor: pointer; font-size: 0.9rem; padding: 0 2px; line-height: 1;
         }
         .nb-item:hover .nb-delete { display: inline; }
         .nb-item .nb-delete:hover { color: var(--delete-hover-text); }
+        /* Expandable nav sections */
+        .nb-nav-section { margin: 0; }
+        .nb-nav-section .nb-sub-items { display: none; }
+        .nb-nav-section.expanded .nb-sub-items { display: block; }
+        .nb-nav-item .nb-expand-arrow {
+            font-size: 0.6rem; color: var(--text-faint); margin-left: auto;
+            transition: transform 0.15s;
+        }
+        .nb-nav-section.expanded > .nb-nav-item .nb-expand-arrow { transform: rotate(90deg); }
         #nb-footer {
             padding: 8px 10px; border-top: 1px solid var(--border);
-            display: flex; flex-direction: column; gap: 6px;
+            display: flex; align-items: center; gap: 6px;
         }
-        #nb-footer .nb-add-btn {
-            background: none; border: 1px dashed var(--border); border-radius: 6px;
-            color: var(--text-muted); font-size: 0.78rem; padding: 5px 8px;
-            cursor: pointer; transition: all 0.15s; width: 100%;
-        }
-        #nb-footer .nb-add-btn:hover { border-color: var(--accent); color: var(--accent); }
         #nb-footer select {
-            width: 100%; padding: 4px 6px; border: 1px solid var(--border);
+            flex: 1; padding: 4px 6px; border: 1px solid var(--border);
             border-radius: 4px; background: var(--bg-surface); color: var(--text-secondary);
             font-size: 0.75rem;
         }
@@ -1054,44 +1116,97 @@
         <div class="resize-handle" id="nb-resize"></div>
         <button class="sidebar-toggle" id="nb-collapse-btn" title="Toggle sidebar (Ctrl+\)">&#9664;</button>
         <div id="nb-header">
-            <h1>Sememes</h1>
+            <!-- Search bar (Evernote-style) -->
+            <div id="nb-search-bar" title="Search (Ctrl+P)">
+                <span class="nb-search-icon">&#128269;</span>
+                <span class="nb-search-label">Search</span>
+                <span class="nb-search-shortcut">Ctrl+K</span>
+            </div>
+            <!-- New Note button row -->
+            <div id="nb-new-row">
+                <button id="nb-new-note-btn" title="Create new note">
+                    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM13 3.5L18.5 9H13V3.5zM11 13h2v3h3v2h-3v3h-2v-3H8v-2h3v-3z"/></svg>
+                    Note
+                </button>
+                <div style="position:relative">
+                    <button id="nb-more-btn" title="More actions">&#8943;</button>
+                    <div class="nb-more-menu" id="nb-more-menu">
+                        <button id="nb-more-import">&#128229; Import Evernote (.enex)</button>
+                        <button id="nb-more-capture">&#9889; Quick Capture</button>
+                        <button id="nb-more-export-json">&#128230; Export All (JSON)</button>
+                        <button id="nb-more-export-enex">&#128230; Export All (ENEX)</button>
+                        <button id="nb-more-new-nb">&#128210; New Notebook</button>
+                    </div>
+                </div>
+            </div>
         </div>
         <div id="nb-list">
-            <div class="nb-item active" data-nb="all" id="nb-all">
-                <span class="nb-name">All Notes</span>
+            <!-- Primary navigation -->
+            <div class="nb-nav-item active" data-nb="all" id="nb-all">
+                <span class="nb-nav-icon">&#127968;</span>
+                <span class="nb-name">Home</span>
                 <span class="nb-count" id="nb-all-count">0</span>
             </div>
-            <div class="nb-item" data-nb="recent" id="nb-recent">
-                <span class="nb-name">Recent</span>
-            </div>
-            <div class="nb-item" data-nb="starred" id="nb-starred">
-                <span class="nb-name">Starred</span>
+            <div class="nb-nav-item" data-nb="starred" id="nb-starred">
+                <span class="nb-nav-icon">&#9734;</span>
+                <span class="nb-name">Shortcuts</span>
                 <span class="nb-count" id="nb-starred-count">0</span>
             </div>
-            <div class="nb-separator"></div>
-            <div class="nb-section-label">Notebooks</div>
-            <div id="nb-items"></div>
-            <div class="nb-separator"></div>
-            <div id="nb-tags-section">
-                <div class="nb-section-label" style="display:flex;justify-content:space-between;align-items:center">
-                    Tags
-                    <button class="tag-action-btn" id="manage-tags-btn" title="Manage tags" style="font-size:0.72rem;background:none;border:none;color:var(--text-faint);cursor:pointer">&#9881;</button>
-                </div>
-                <div id="nb-tags"></div>
+            <div class="nb-nav-item" data-nb="recent" id="nb-recent">
+                <span class="nb-nav-icon">&#128196;</span>
+                <span class="nb-name">Notes</span>
             </div>
-            <div class="nb-separator"></div>
-            <div id="saved-searches-section">
-                <div class="nb-section-label">Saved Searches</div>
-                <div id="saved-searches-list"></div>
+            <div class="nb-nav-item" data-nb="topicmap" id="nb-topicmap">
+                <span class="nb-nav-icon">&#9745;</span>
+                <span class="nb-name">Topic Map</span>
             </div>
-            <div class="nb-separator"></div>
-            <div class="nb-item" data-nb="trash" id="nb-trash">
+            <div class="nb-nav-item" data-nb="trash" id="nb-trash">
+                <span class="nb-nav-icon">&#128465;</span>
                 <span class="nb-name">Trash</span>
                 <span class="nb-count" id="nb-trash-count">0</span>
             </div>
+            <div class="nb-separator"></div>
+            <!-- Notebooks section (expandable) -->
+            <div class="nb-nav-section expanded" id="nb-notebooks-section">
+                <div class="nb-nav-item" id="nb-notebooks-toggle">
+                    <span class="nb-nav-icon">&#128210;</span>
+                    <span class="nb-name">Notebooks</span>
+                    <span class="nb-expand-arrow">&#9654;</span>
+                </div>
+                <div class="nb-sub-items">
+                    <div id="nb-items"></div>
+                    <div style="padding:4px 14px">
+                        <button class="nb-add-btn" id="new-nb-btn" style="background:none;border:1px dashed var(--border);border-radius:6px;color:var(--text-muted);font-size:0.72rem;padding:4px 8px;cursor:pointer;width:100%;transition:all 0.15s">+ New Notebook</button>
+                    </div>
+                </div>
+            </div>
+            <div class="nb-separator"></div>
+            <!-- Tags section (expandable) -->
+            <div class="nb-nav-section expanded" id="nb-tags-section">
+                <div class="nb-nav-item" id="nb-tags-toggle">
+                    <span class="nb-nav-icon">&#128278;</span>
+                    <span class="nb-name">Tags</span>
+                    <button class="tag-action-btn" id="manage-tags-btn" title="Manage tags" style="font-size:0.72rem;background:none;border:none;color:var(--text-faint);cursor:pointer;margin-left:auto">&#9881;</button>
+                    <span class="nb-expand-arrow">&#9654;</span>
+                </div>
+                <div class="nb-sub-items">
+                    <div id="nb-tags"></div>
+                </div>
+            </div>
+            <div class="nb-separator"></div>
+            <!-- Saved Searches section -->
+            <div class="nb-nav-section" id="nb-saved-section">
+                <div class="nb-nav-item" id="nb-saved-toggle">
+                    <span class="nb-nav-icon">&#128270;</span>
+                    <span class="nb-name">Saved Searches</span>
+                    <span class="nb-expand-arrow">&#9654;</span>
+                </div>
+                <div class="nb-sub-items">
+                    <div id="saved-searches-list"></div>
+                </div>
+            </div>
         </div>
         <div id="nb-footer">
-            <button class="nb-add-btn" id="new-nb-btn">+ New Notebook</button>
             <select id="theme-select">
                 <option value="light">Light</option>
                 <option value="evernote">Evernote</option>
@@ -1972,6 +2087,68 @@
         document.getElementById("nb-starred").addEventListener("click", () => selectView("starred", null));
         document.getElementById("nb-trash").addEventListener("click", () => selectView("trash", null));
 
+        // Topic Map nav item
+        document.getElementById("nb-topicmap").addEventListener("click", () => {
+            const tp = document.getElementById("topicmap-panel");
+            if (!tp.classList.contains("visible")) tp.classList.add("visible");
+            document.getElementById("topicmap-toggle").scrollIntoView();
+        });
+
+        // Sidebar search bar opens command palette
+        document.getElementById("nb-search-bar").addEventListener("click", () => openPalette());
+
+        // Green new-note button in sidebar
+        document.getElementById("nb-new-note-btn").addEventListener("click", () => {
+            document.getElementById("new-note-btn").click();
+        });
+
+        // More menu
+        const nbMoreBtn = document.getElementById("nb-more-btn");
+        const nbMoreMenu = document.getElementById("nb-more-menu");
+        nbMoreBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            nbMoreMenu.classList.toggle("visible");
+        });
+        document.addEventListener("click", () => nbMoreMenu.classList.remove("visible"));
+        document.getElementById("nb-more-import").addEventListener("click", () => {
+            nbMoreMenu.classList.remove("visible");
+            document.getElementById("import-enex-btn").click();
+        });
+        document.getElementById("nb-more-capture").addEventListener("click", () => {
+            nbMoreMenu.classList.remove("visible");
+            document.getElementById("quick-capture-btn").click();
+        });
+        document.getElementById("nb-more-export-json").addEventListener("click", () => {
+            nbMoreMenu.classList.remove("visible");
+            window.location.href = "/library/export-all/json";
+        });
+        document.getElementById("nb-more-export-enex").addEventListener("click", () => {
+            nbMoreMenu.classList.remove("visible");
+            window.location.href = "/library/export-all/enex";
+        });
+        document.getElementById("nb-more-new-nb").addEventListener("click", () => {
+            nbMoreMenu.classList.remove("visible");
+            document.getElementById("new-nb-btn").click();
+        });
+
+        // Expandable nav sections
+        document.querySelectorAll("#nb-notebooks-toggle, #nb-tags-toggle, #nb-saved-toggle").forEach(toggle => {
+            toggle.addEventListener("click", (e) => {
+                // Don't toggle if clicking the manage-tags gear button
+                if (e.target.closest(".tag-action-btn")) return;
+                const section = toggle.closest(".nb-nav-section");
+                section.classList.toggle("expanded");
+                localStorage.setItem("nb-section-" + section.id, section.classList.contains("expanded"));
+            });
+        });
+        // Restore section states
+        ["nb-notebooks-section", "nb-tags-section", "nb-saved-section"].forEach(id => {
+            const saved = localStorage.getItem("nb-section-" + id);
+            const section = document.getElementById(id);
+            if (saved === "false") section.classList.remove("expanded");
+            else if (saved === "true") section.classList.add("expanded");
+        });
+
         function selectNotebook(name) {
             selectView(null, name);
         }
@@ -1994,8 +2171,8 @@
             document.getElementById("notes-actions").style.display = view === "trash" ? "none" : "flex";
             document.getElementById("sort-bar").style.display = view === "trash" || view === "recent" ? "none" : "flex";
 
-            // Update active state
-            document.querySelectorAll("#nb-list .nb-item").forEach(el => {
+            // Update active state for nav items and notebook sub-items
+            document.querySelectorAll("#nb-list .nb-nav-item[data-nb], #nb-list .nb-item[data-nb]").forEach(el => {
                 if (view) {
                     el.classList.toggle("active", el.dataset.nb === view);
                 } else {
@@ -3878,6 +4055,16 @@
                 e.preventDefault();
                 openPalette();
                 return;
+            }
+            // Ctrl+K: Open palette if not editing a note (matches Evernote search shortcut)
+            if (ctrl && e.key.toLowerCase() === "k" && !e.shiftKey) {
+                const editorFocused = document.activeElement &&
+                    (document.activeElement === textOriginal || document.activeElement === textEnglish);
+                if (!editorFocused) {
+                    e.preventDefault();
+                    openPalette();
+                    return;
+                }
             }
             // Ctrl+\: Toggle notebooks sidebar
             if (ctrl && e.key === "\\") {
