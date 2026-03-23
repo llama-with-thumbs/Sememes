@@ -572,6 +572,9 @@
             width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
             color: var(--text-muted); font-size: 1.05rem; flex-shrink: 0;
         }
+        .nb-nav-item .nb-nav-icon, .home-tile .tile-icon {
+            filter: grayscale(1); opacity: 0.7;
+        }
         .nb-nav-item.active .nb-nav-icon { color: var(--text-heading); }
         .nb-nav-item .nb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
         .nb-count {
@@ -1202,7 +1205,7 @@
         <div id="nb-list">
             <!-- Primary navigation -->
             <div class="nb-nav-item active" data-nb="all" id="nb-all">
-                <span class="nb-nav-icon">&#8962;</span>
+                <span class="nb-nav-icon">&#127968;</span>
                 <span class="nb-name">Home</span>
                 <span class="nb-count" id="nb-all-count">0</span>
             </div>
@@ -1212,7 +1215,7 @@
                 <span class="nb-count" id="nb-starred-count">0</span>
             </div>
             <div class="nb-nav-item" data-nb="recent" id="nb-recent">
-                <span class="nb-nav-icon">&#9776;</span>
+                <span class="nb-nav-icon">&#128195;</span>
                 <span class="nb-name">Notes</span>
             </div>
             <div class="nb-nav-item" data-nb="topicmap" id="nb-topicmap">
@@ -1228,7 +1231,7 @@
             <!-- Notebooks section (expandable) -->
             <div class="nb-nav-section expanded" id="nb-notebooks-section">
                 <div class="nb-nav-item" id="nb-notebooks-toggle">
-                    <span class="nb-nav-icon">&#9744;</span>
+                    <span class="nb-nav-icon">&#128218;</span>
                     <span class="nb-name">Notebooks</span>
                     <span class="nb-expand-arrow">&#9654;</span>
                 </div>
@@ -2285,7 +2288,7 @@
                     tile.className = "home-tile";
                     const created = nb.created_at ? new Date(nb.created_at).toLocaleDateString() : "";
                     tile.innerHTML = `
-                        <span class="tile-icon">&#9744;</span>
+                        <span class="tile-icon">&#128211;</span>
                         <span class="tile-name">${escapeHtml(nb.name)}</span>
                         <span class="tile-count">${nb.note_count} note${nb.note_count !== 1 ? 's' : ''}${created ? ' &middot; ' + created : ''}</span>
                     `;
