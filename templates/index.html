@@ -1168,6 +1168,21 @@
         }
         .note-card:hover .note-restore { display: inline; }
 
+        /* Navigation arrows */
+        #nb-nav-arrows {
+            display: flex; justify-content: flex-end; gap: 8px;
+            padding: 10px 14px 0;
+        }
+        #nb-nav-arrows button {
+            background: none; border: none; cursor: pointer;
+            color: var(--text-muted); font-size: 1.2rem; padding: 2px 4px;
+            line-height: 1; transition: color 0.15s;
+        }
+        #nb-nav-arrows button:hover:not(:disabled) { color: var(--text-heading); }
+        #nb-nav-arrows button:disabled {
+            color: var(--text-faint); opacity: 0.35; cursor: default;
+        }
+
         /* Hidden file inputs */
         #file-input, #enex-input { display: none; }
     </style>
@@ -1177,6 +1192,10 @@
     <div id="notebooks-panel">
         <div class="resize-handle" id="nb-resize"></div>
         <button class="sidebar-toggle" id="nb-collapse-btn" title="Toggle sidebar (Ctrl+\)">&#9664;</button>
+        <div id="nb-nav-arrows">
+            <button id="nav-back-btn" title="Go back" disabled>&#8592;</button>
+            <button id="nav-forward-btn" title="Go forward" disabled>&#8594;</button>
+        </div>
         <div id="nb-header">
             <!-- Search bar (Evernote-style) -->
             <div id="nb-search-bar" title="Search (Ctrl+P)">
@@ -2152,7 +2171,7 @@
         document.getElementById("nb-trash").addEventListener("click", () => selectView("trash", null));
 
         // Topic Map nav item — full screen with only sidebar visible
-        document.getElementById("nb-topicmap").addEventListener("click", () => {
+        function showTopicMap() {
             currentFileId = null;
             document.getElementById("home-dashboard").classList.remove("visible");
             editorActive.classList.remove("visible");
@@ -2166,7 +2185,12 @@
             document.querySelectorAll("#nb-list .nb-nav-item[data-nb], #nb-list .nb-item[data-nb]").forEach(el => {
                 el.classList.toggle("active", el.dataset.nb === "topicmap");
             });
-        });
+            // Center graph in new space after layout reflow
+            if (topicmapNetwork) {
+                setTimeout(() => topicmapNetwork.fit({ animation: { duration: 300, easingFunction: "easeInOutQuad" } }), 150);
+            }
+        }
+        document.getElementById("nb-topicmap").addEventListener("click", () => showTopicMap());
 
         // Sidebar search bar opens command palette
         document.getElementById("nb-search-bar").addEventListener("click", () => openPalette());
@@ -2238,7 +2262,11 @@
                 el.classList.toggle("active", el.dataset.nb === "all");
             });
 
-            // Hide notes panel, editor; show dashboard
+            // Reset topic map if it was full-screen
+            const tmP = document.getElementById("topicmap-panel");
+            tmP.classList.remove("visible"); tmP.style.flex = "";
+            // Restore editor panel, hide notes panel; show dashboard
+            document.getElementById("editor-panel").style.display = "";
             document.getElementById("notes-panel").style.display = "none";
             editorActive.classList.remove("visible");
             editorEmpty.style.display = "none";
@@ -3118,7 +3146,7 @@
         document.getElementById("topicmap-toggle").addEventListener("click", () => {
             topicmapPanel.classList.toggle("visible");
             if (topicmapPanel.classList.contains("visible") && topicmapNetwork) {
-                setTimeout(() => topicmapNetwork.fit(), 100);
+                setTimeout(() => topicmapNetwork.fit({ animation: { duration: 300, easingFunction: "easeInOutQuad" } }), 100);
             }
         });
         document.getElementById("topicmap-close").addEventListener("click", () => {
@@ -4236,6 +4264,95 @@
                 return;
             }
         });
+
+        // --- Navigation History (Back/Forward) ---
+        const navHistory = [];
+        let navIndex = -1;
+        let navNavigating = false; // prevent recording while navigating
+
+        function navPush(entry) {
+            if (navNavigating) return;
+            // Don't push duplicate consecutive entries
+            if (navIndex >= 0 && JSON.stringify(navHistory[navIndex]) === JSON.stringify(entry)) return;
+            // Trim forward history
+            navHistory.splice(navIndex + 1);
+            navHistory.push(entry);
+            navIndex = navHistory.length - 1;
+            updateNavButtons();
+        }
+
+        function updateNavButtons() {
+            document.getElementById("nav-back-btn").disabled = navIndex <= 0;
+            document.getElementById("nav-forward-btn").disabled = navIndex >= navHistory.length - 1;
+        }
+
+        document.getElementById("nav-back-btn").addEventListener("click", () => {
+            if (navIndex <= 0) return;
+            navIndex--;
+            navNavigating = true;
+            applyNavEntry(navHistory[navIndex]);
+            navNavigating = false;
+            updateNavButtons();
+        });
+
+        document.getElementById("nav-forward-btn").addEventListener("click", () => {
+            if (navIndex >= navHistory.length - 1) return;
+            navIndex++;
+            navNavigating = true;
+            applyNavEntry(navHistory[navIndex]);
+            navNavigating = false;
+            updateNavButtons();
+        });
+
+        // Mouse back/forward buttons & keyboard Alt+Left/Right
+        // Browser mouse back/forward triggers 'navigate' or 'popstate' — we intercept both
+        // Push two states so both back and forward have something to pop
+        history.pushState({sem: 1}, "", location.href);
+        history.pushState({sem: 2}, "", location.href);
+        window.addEventListener("popstate", (e) => {
+            // Forward button was pressed (went to state we haven't seen)
+            // or Back button was pressed
+            if (e.state && e.state.sem === 1) {
+                // Back was pressed — restore state stack and trigger back
+                history.pushState({sem: 2}, "", location.href);
+                document.getElementById("nav-back-btn").click();
+            } else {
+                // Forward or unknown — restore and trigger forward
+                history.pushState({sem: 2}, "", location.href);
+                document.getElementById("nav-forward-btn").click();
+            }
+        });
+        // Also listen for Alt+Left / Alt+Right
+        window.addEventListener("keydown", (e) => {
+            if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); document.getElementById("nav-back-btn").click(); }
+            if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); document.getElementById("nav-forward-btn").click(); }
+        });
+
+        function applyNavEntry(entry) {
+            if (entry.type === "home") {
+                _origShowHome();
+            } else if (entry.type === "topicmap") {
+                _origShowTopicMap();
+            } else if (entry.type === "note") {
+                if (entry.view || entry.notebook) _origSelectView(entry.view, entry.notebook);
+                _origOpenFile(entry.fileId);
+            } else if (entry.type === "view") {
+                _origSelectView(entry.view, entry.notebook);
+            }
+        }
+
+        // Hook into existing navigation functions to record history
+        const _origShowHome = showHomeDashboard;
+        showHomeDashboard = function() { _origShowHome(); navPush({ type: "home" }); };
+
+        const _origShowTopicMap = showTopicMap;
+        showTopicMap = function() { _origShowTopicMap(); navPush({ type: "topicmap" }); };
+
+        const _origSelectView = selectView;
+        selectView = function(view, notebook) { _origSelectView(view, notebook); navPush({ type: "view", view, notebook }); };
+
+        const _origOpenFile = openFile;
+        openFile = async function(fileId) { await _origOpenFile(fileId); navPush({ type: "note", fileId, view: currentView, notebook: currentNotebook }); };
 
         // --- Init ---
         loadNotebooks();
