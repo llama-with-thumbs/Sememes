@@ -1209,21 +1209,16 @@
                 <span class="nb-name">Home</span>
                 <span class="nb-count" id="nb-all-count">0</span>
             </div>
-            <div class="nb-nav-item" data-nb="starred" id="nb-starred">
-                <span class="nb-nav-icon">&#9734;</span>
-                <span class="nb-name">Shortcuts</span>
-                <span class="nb-count" id="nb-starred-count">0</span>
-            </div>
             <div class="nb-nav-item" data-nb="recent" id="nb-recent">
                 <span class="nb-nav-icon">&#128195;</span>
                 <span class="nb-name">Notes</span>
             </div>
             <div class="nb-nav-item" data-nb="topicmap" id="nb-topicmap">
-                <span class="nb-nav-icon">&#9672;</span>
+                <span class="nb-nav-icon" style="filter:none;opacity:1"><svg viewBox="0 0 24 24" width="20" height="20" fill="#999" stroke="#777" stroke-width="1.4"><line x1="6" y1="6" x2="12" y2="12"/><line x1="18" y1="6" x2="12" y2="12"/><line x1="6" y1="6" x2="18" y2="6"/><line x1="12" y1="12" x2="6" y2="18"/><line x1="12" y1="12" x2="18" y2="18"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="12" cy="12" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/></svg></span>
                 <span class="nb-name">Topic Map</span>
             </div>
             <div class="nb-nav-item" data-nb="trash" id="nb-trash">
-                <span class="nb-nav-icon">&#9249;</span>
+                <span class="nb-nav-icon">&#128465;&#65039;</span>
                 <span class="nb-name">Trash</span>
                 <span class="nb-count" id="nb-trash-count">0</span>
             </div>
@@ -1242,31 +1237,8 @@
                     </div>
                 </div>
             </div>
-            <div class="nb-separator"></div>
-            <!-- Tags section (expandable) -->
-            <div class="nb-nav-section expanded" id="nb-tags-section">
-                <div class="nb-nav-item" id="nb-tags-toggle">
-                    <span class="nb-nav-icon">&#9168;</span>
-                    <span class="nb-name">Tags</span>
-                    <button class="tag-action-btn" id="manage-tags-btn" title="Manage tags" style="font-size:0.72rem;background:none;border:none;color:var(--text-faint);cursor:pointer;margin-left:auto">&#9881;</button>
-                    <span class="nb-expand-arrow">&#9654;</span>
-                </div>
-                <div class="nb-sub-items">
-                    <div id="nb-tags"></div>
-                </div>
-            </div>
-            <div class="nb-separator"></div>
-            <!-- Saved Searches section -->
-            <div class="nb-nav-section" id="nb-saved-section">
-                <div class="nb-nav-item" id="nb-saved-toggle">
-                    <span class="nb-nav-icon">&#8981;</span>
-                    <span class="nb-name">Saved Searches</span>
-                    <span class="nb-expand-arrow">&#9654;</span>
-                </div>
-                <div class="nb-sub-items">
-                    <div id="saved-searches-list"></div>
-                </div>
-            </div>
+            <div id="nb-tags" style="display:none"></div>
+            <div id="saved-searches-list" style="display:none"></div>
         </div>
         <div id="nb-footer">
             <select id="theme-select">
@@ -1598,7 +1570,7 @@
         const sortSelect = document.getElementById("sort-select");
         const trashBanner = document.getElementById("trash-banner");
         const starBtn = document.getElementById("star-btn");
-        const nbStarredCount = document.getElementById("nb-starred-count");
+        const nbStarredCount = document.getElementById("nb-starred-count") || document.createElement("span");
         const nbTrashCount = document.getElementById("nb-trash-count");
 
         // --- State ---
@@ -2175,14 +2147,25 @@
 
         nbAllItem.addEventListener("click", () => showHomeDashboard());
         document.getElementById("nb-recent").addEventListener("click", () => selectView("recent", null));
-        document.getElementById("nb-starred").addEventListener("click", () => selectView("starred", null));
+        const nbStarredEl = document.getElementById("nb-starred");
+        if (nbStarredEl) nbStarredEl.addEventListener("click", () => selectView("starred", null));
         document.getElementById("nb-trash").addEventListener("click", () => selectView("trash", null));
 
-        // Topic Map nav item
+        // Topic Map nav item — full screen with only sidebar visible
         document.getElementById("nb-topicmap").addEventListener("click", () => {
+            currentFileId = null;
+            document.getElementById("home-dashboard").classList.remove("visible");
+            editorActive.classList.remove("visible");
+            editorEmpty.style.display = "none";
+            document.getElementById("notes-panel").style.display = "none";
+            document.getElementById("editor-panel").style.display = "none";
             const tp = document.getElementById("topicmap-panel");
-            if (!tp.classList.contains("visible")) tp.classList.add("visible");
-            document.getElementById("topicmap-toggle").scrollIntoView();
+            tp.classList.add("visible");
+            tp.style.flex = "1";
+            // Update active state
+            document.querySelectorAll("#nb-list .nb-nav-item[data-nb], #nb-list .nb-item[data-nb]").forEach(el => {
+                el.classList.toggle("active", el.dataset.nb === "topicmap");
+            });
         });
 
         // Sidebar search bar opens command palette
@@ -2239,6 +2222,7 @@
         ["nb-notebooks-section", "nb-tags-section", "nb-saved-section"].forEach(id => {
             const saved = localStorage.getItem("nb-section-" + id);
             const section = document.getElementById(id);
+            if (!section) return;
             if (saved === "false") section.classList.remove("expanded");
             else if (saved === "true") section.classList.add("expanded");
         });
@@ -2316,9 +2300,13 @@
             currentNotebook = notebook;
             currentTagFilter = null;
 
-            // Hide home dashboard, restore notes panel when navigating away
+            // Hide home dashboard, restore panels, reset topic map when navigating away
             document.getElementById("home-dashboard").classList.remove("visible");
             document.getElementById("notes-panel").style.display = "";
+            document.getElementById("editor-panel").style.display = "";
+            const tmPanel = document.getElementById("topicmap-panel");
+            tmPanel.classList.remove("visible");
+            tmPanel.style.flex = "";
 
             // Title
             if (view === "recent") notesTitle.textContent = "Recent Notes";
@@ -3085,6 +3073,9 @@
             editorActive.classList.remove("visible");
             document.getElementById("home-dashboard").classList.remove("visible");
             document.getElementById("notes-panel").style.display = "";
+            document.getElementById("editor-panel").style.display = "";
+            const tmReset = document.getElementById("topicmap-panel");
+            tmReset.classList.remove("visible"); tmReset.style.flex = "";
             editorEmpty.style.display = "flex";
             audioBar.style.display = "none";
             progressBarEl.style.display = "none";
@@ -3489,7 +3480,8 @@
         }
 
         // Manage tags button — shows merge dialog
-        document.getElementById("manage-tags-btn").addEventListener("click", () => {
+        const manageTagsBtn = document.getElementById("manage-tags-btn");
+        manageTagsBtn && manageTagsBtn.addEventListener("click", () => {
             if (allTags.length < 2) { showError("Need at least 2 tags to manage"); return; }
             const tagNames = allTags.map(t => t.name);
             const sources = prompt("Tags to merge (comma-separated):\n\nAvailable: " + tagNames.join(", "));
