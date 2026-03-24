@@ -1480,7 +1480,6 @@
             <input type="checkbox" id="bulk-select-all" title="Select all">
             <span class="bulk-count"><span id="bulk-count-num">0</span> selected</span>
             <div class="bulk-spacer"></div>
-            <button id="bulk-star-btn" title="Star">&#9733;</button>
             <button id="bulk-move-btn" title="Move to notebook">Move</button>
             <button id="bulk-tag-btn" title="Add tag">Tag</button>
             <button id="bulk-trash-btn" title="Move to trash">Trash</button>
@@ -1561,7 +1560,7 @@
                 <div class="toolbar-sep"></div>
                 <button class="toolbar-btn" id="cleanup-btn" title="Remove extra blank lines">Clean up</button>
                 <button class="toolbar-btn" id="duplicate-btn" title="Duplicate note">Duplicate</button>
-                <button class="toolbar-btn" id="star-btn" title="Star / Unstar">&#9734;</button>
+                <button class="toolbar-btn" id="star-btn" title="Star / Unstar" style="display:none">&#9734;</button>
                 <div class="export-dropdown">
                     <button class="toolbar-btn" id="export-btn" title="Export note">Export</button>
                     <div class="export-menu" id="export-menu">
@@ -2483,7 +2482,6 @@
                 statsEl.innerHTML = `
                     <div class="home-stat"><span class="stat-num">${totalNotes}</span><span class="stat-label">Notes</span></div>
                     <div class="home-stat"><span class="stat-num">${notebooks.length}</span><span class="stat-label">Notebooks</span></div>
-                    <div class="home-stat"><span class="stat-num">${starred}</span><span class="stat-label">Starred</span></div>
                 `;
 
                 // Tiles
@@ -2531,7 +2529,6 @@
 
             // Title
             if (view === "recent") notesTitle.textContent = "Recent Notes";
-            else if (view === "starred") notesTitle.textContent = "Starred";
             else if (view === "trash") notesTitle.textContent = "Trash";
             else notesTitle.textContent = notebook || "All Notes";
 
@@ -2646,8 +2643,6 @@
                     } catch (_) {}
                 }
 
-                const starClass = f.starred ? "note-star starred" : "note-star";
-                const starIcon = f.starred ? "&#9733;" : "&#9734;";
 
                 const titleHtml = q ? highlightText(f.original_name, q) : escapeHtml(f.original_name);
                 const previewHtml = q ? highlightText(f.preview || "", q) : escapeHtml(f.preview || "");
@@ -2672,7 +2667,6 @@
                     li.innerHTML = `
                         <div style="display:flex;align-items:center;gap:4px">
                             <input type="checkbox" class="bulk-checkbox" data-bulk-id="${f.id}">
-                            ${!isTrash ? '<button class="' + starClass + '" data-star-id="' + f.id + '" title="Star">' + starIcon + '</button>' : ''}
                             <div class="note-card-title" style="flex:1">${titleHtml}</div>
                         </div>
                         <div class="note-card-preview">${previewHtml}</div>
@@ -2724,17 +2718,6 @@
                     }
                     openFile(f.id);
                 });
-
-                // Star toggle
-                const starEl = li.querySelector("[data-star-id]");
-                if (starEl) {
-                    starEl.addEventListener("click", async (e) => {
-                        e.stopPropagation();
-                        await fetch(`/library/${f.id}/star`, { method: "PUT" });
-                        loadNoteList();
-                        loadNotebooks();
-                    });
-                }
 
                 // Restore from trash
                 const restoreEl = li.querySelector("[data-restore-id]");
@@ -2894,20 +2877,6 @@
                 await loadNotebooks();
                 openFile(data.file_id);
             } catch (e) { showError(e.message); }
-        });
-
-        // --- Star toggle (toolbar) ---
-        starBtn.addEventListener("click", async () => {
-            if (!currentFileId) return;
-            const res = await fetch(`/library/${currentFileId}/star`, { method: "PUT" });
-            const data = await res.json();
-            if (res.ok) {
-                currentFileStarred = !!data.starred;
-                starBtn.innerHTML = currentFileStarred ? "&#9733;" : "&#9734;";
-                starBtn.classList.toggle("starred", currentFileStarred);
-                loadNoteList();
-                loadNotebooks();
-            }
         });
 
         // --- Import Evernote ---
@@ -3266,11 +3235,6 @@
 
             // Title
             noteTitle.value = data.original_name || "";
-
-            // Star state
-            currentFileStarred = !!data.starred;
-            starBtn.innerHTML = currentFileStarred ? "&#9733;" : "&#9734;";
-            starBtn.classList.toggle("starred", currentFileStarred);
 
             // Metadata
             metaCreated.textContent = new Date(data.created_at).toLocaleString();
@@ -3928,18 +3892,6 @@
             updateBulkCount();
         });
 
-        document.getElementById("bulk-star-btn").addEventListener("click", async () => {
-            if (selectedIds.size === 0) return;
-            await fetch("/library/bulk", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({ids: [...selectedIds], action: "star"})
-            });
-            toggleBulkMode(false);
-            loadNoteList();
-            loadNotebooks();
-        });
-
         document.getElementById("bulk-trash-btn").addEventListener("click", async () => {
             if (selectedIds.size === 0) return;
             if (!confirm(`Move ${selectedIds.size} note(s) to trash?`)) return;
@@ -4386,7 +4338,6 @@
             { name: "Compact View", icon: "\u2261", shortcut: "", action: () => denseToggle.click() },
             { name: "All Notes", icon: "\uD83D\uDCCB", shortcut: "", action: () => { selectView(null, null); } },
             { name: "Recent Notes", icon: "\uD83D\uDD52", shortcut: "", action: () => { selectView("recent", null); } },
-            { name: "Starred Notes", icon: "\u2605", shortcut: "", action: () => { selectView("starred", null); } },
             { name: "Trash", icon: "\uD83D\uDDD1", shortcut: "", action: () => { selectView("trash", null); } },
             { name: "Export as Markdown", icon: "\u2B07", shortcut: "", action: () => { if (currentFileId) window.location.href = `/library/${currentFileId}/export/md`; } },
             { name: "Export as HTML", icon: "\u2B07", shortcut: "", action: () => { if (currentFileId) window.location.href = `/library/${currentFileId}/export/html`; } },
