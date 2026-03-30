@@ -5,110 +5,68 @@ Sememes is a personal knowledge tool that records voice notes, transcribes with 
 ## Features
 
 ### Note Management
-- **Three-panel layout** — Notebooks sidebar, note list with search, and full editor (inspired by Evernote)
-- **Notebooks** — Organize notes into notebooks; every note belongs to a notebook ("My Notebook" by default)
+- **Evernote-inspired layout** — Sidebar navigation, note list, and full editor with breadcrumb bar showing notebook > note path
+- **Notebooks** — Organize notes into notebooks with creation dates and note counts; dedicated notebooks list view
+- **Home dashboard** — Notebook tiles grid with stats (total notes, notebook count)
 - **Create, edit, rename, duplicate, and delete** notes with auto-save (2-second debounce)
-- **Starred / pinned notes** — Star important notes; they appear first in the list and have a dedicated "Starred" view
-- **Trash / restore** — Deleted notes go to trash first; restore or permanently delete from the trash view; "Empty Trash" clears all
-- **Recent Notes** — Quick-access view showing the 20 most recently updated notes
+- **Trash / restore** — Deleted notes go to trash; restore or permanently delete; "Empty Trash" clears all
 - **Sorting** — Sort notes by created date, updated date, or title (ascending/descending)
-- **Search** — Real-time search across note titles and content
-- **Rich text editor** — Formatting toolbar with Bold, Italic, Underline, Strikethrough, Headings (H1–H3), Bullet/Numbered lists, and a whitespace cleanup tool
-- **Undo / Redo** — Toolbar buttons and keyboard shortcuts (Ctrl+Z / Ctrl+Y)
-- **Checklists** — Interactive checkbox lists with auto-continuation on Enter
-- **Links** — Insert external hyperlinks (Ctrl+K) and internal note links (Ctrl+Shift+K) with autocomplete search
-- **Code blocks** — Monospace-styled code blocks with syntax-friendly formatting
-- **Blockquotes** — Styled quote blocks (Ctrl+Shift+Q)
-- **Tables** — Insert editable HTML tables with configurable rows/columns
-- **Image embedding** — Upload and embed images inline in notes
-- **File attachments** — Attach PDFs, documents, audio, and other files to notes; attachments bar at bottom
-- **Keyboard shortcuts** — Ctrl+1/2/3 for headings, Ctrl+Shift+S strikethrough, Ctrl+Shift+U bullet list, Ctrl+Shift+O numbered list, Ctrl+Shift+C checklist
+- **Dense/compact mode** — Toggle compact note list for more notes on screen
+- **Rich text editor** — Bold, Italic, Underline, Strikethrough, Headings (H1-H3), Bullet/Numbered lists, Checklists, Code blocks, Blockquotes, Tables
+- **Links** — External hyperlinks (Ctrl+K) and internal note links (Ctrl+Shift+K) with autocomplete
+- **Image embedding** — Upload and embed images inline
+- **File attachments** — Attach any file type to notes
 
-### Organization
-- **Tag management** — Add, remove, rename, and merge tags across notes; inline tag editor in note metadata
-- **Nested tags** — Hierarchical tags using "/" separator (e.g., "work/meetings"); grouped display in sidebar
-- **Tag filtering** — Click any tag in the sidebar to filter notes; filter by tag group (parent prefix)
-- **Notebook stacks** — Group notebooks into collapsible stacks via right-click; persistent collapse state
-- **Bulk actions** — Multi-select notes (long-press or checkbox); bulk star, move, tag, or trash
-- **Saved searches** — Save search queries with filters for quick recall; manage in sidebar
+### Search
+- **Search overlay** (Ctrl+K) — Evernote-style two-column popup with results on left, preview cards on right
+- **Scope filter** — Search everywhere or within a specific notebook
+- **Highlighted matches** — Search terms highlighted in titles and content snippets
+- **Smart previews** — Context snippets centered around matches
+- **In-note search** (Ctrl+F) — Find and replace within the open note with match highlighting and navigation
 
-### Capture Workflows
-- **Quick capture** — Lightning button or Ctrl+N opens an inline capture bar; Enter saves to Inbox notebook instantly
-- **Inbox notebook** — Dedicated "Inbox" notebook auto-created for quick captures and triage
-- **Drag-and-drop into editor** — Drop images or files directly onto the note editor; images embed inline, files attach as links
-- **Clipboard paste cleanup** — Pasting from Word, web pages, or other apps strips messy formatting (Office classes, inline styles, empty elements) while preserving bold/italic/links
-- **Image paste** — Paste screenshots or copied images directly into the editor (Ctrl+V); auto-uploaded as attachments
+### Files
+- **Files panel** — Full-screen file browser accessible from sidebar
+- **Tabs** — Filter by All Files, Media (images/audio/video), or Docs
+- **File preview** — Right panel shows image/audio/video/PDF/text/CSV preview
+- **CSV as table** — CSV files rendered as formatted, scrollable tables
+- **Upload** — Upload standalone files or attach to notes
+- **Download, delete, open parent note** from preview panel
 
 ### Audio & Transcription
 - **Audio upload** — Supports m4a, mp3, wav, ogg, flac, webm, mp4, wma
 - **Whisper transcription** — Chunked transcription with real-time SSE progress streaming
-- **Auto-translation** — GPT-4o-mini translates transcriptions to English; bilingual tab view (English / Original)
+- **Auto-translation** — GPT-4o-mini translates transcriptions to English; bilingual tab view
 
-### Import & Upload
-- **Evernote import** — Import `.enex` files with full support for titles, content (ENML → HTML), dates, and tags
+### Import & Export
+- **Evernote import** — Import `.enex` files; notebook name derived from filename with manual override prompt; preserves titles, content, dates, tags, and metadata (source URL, author, location)
+- **Export** — Single note or bulk export as Markdown, HTML, JSON, or ENEX
 - **Text file upload** — Supports txt, md, csv, json, log, rtf
 - **Drag-and-drop** — Drop audio, text, or .enex files directly into the app
 
+### Reliability & Safety
+- **Version history** — Auto-snapshots before every save; browse and restore previous versions
+- **Conflict protection** — Optimistic locking detects concurrent edits; reload or overwrite options
+- **Note recovery** — Current state saved before restoring a version; nothing is ever lost
+
+### Navigation
+- **Back/forward buttons** — Browser-style navigation history with arrow buttons in sidebar
+- **Mouse back/forward** — Mouse side buttons supported
+- **Keyboard** — Alt+Left / Alt+Right for back/forward
+- **Command palette** (Ctrl+P) — Searchable list of all commands and notebooks
+
 ### Topic Map
-- **Cross-file analysis** — GPT-4o-mini extracts 5–20 recurring topics across all notes
-- **Interactive graph** — vis.js network visualization with force-directed layout
-- **Hover highlighting** — Hovering a topic node highlights matching keywords in the open note
-- **Click navigation** — Click a node to see which files mention that topic, then jump to any of them
-- **Smart caching** — Topic map cached with MD5 hash invalidation; "stale" badge when library changes
-- **Collapsible panel** — Hidden by default, toggled via toolbar button
+- **Cross-file analysis** — GPT-4o-mini extracts recurring topics across all notes
+- **Full-screen view** — Dedicated full-screen mode from sidebar
+- **Interactive graph** — vis.js network with force-directed layout, auto-centered on open
+- **Hover highlighting** — Topic node highlights matching keywords in the open note
+- **Click navigation** — Click a node to see and jump to files mentioning that topic
+- **Smart caching** — MD5 hash invalidation; "stale" badge when library changes
 
-### Themes
-Six built-in themes: Light, Evernote (green accent), Dark, Midnight, Warm, and Nord
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          Browser (SPA)                              │
-│                                                                     │
-│  ┌────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────┐ │
-│  │  Notebooks  │  │  Note List   │  │   Editor     │  │ Topic Map│ │
-│  │   Panel     │  │   Panel      │  │   Panel      │  │  Panel   │ │
-│  │             │  │              │  │              │  │(toggle)  │ │
-│  │ - Notebook  │  │ - Search     │  │ - Toolbar    │  │          │ │
-│  │   list      │  │ - Note cards │  │ - Title      │  │ - vis.js │ │
-│  │ - Theme     │  │ - Upload     │  │ - Metadata   │  │   graph  │ │
-│  │   selector  │  │ - Import     │  │ - Rich text  │  │ - Node   │ │
-│  │             │  │              │  │ - Audio bar  │  │   hover  │ │
-│  └────────────┘  └──────────────┘  └──────────────┘  └──────────┘ │
-│         │                │                │                │        │
-│         └────────────────┴────────────────┴────────────────┘        │
-│                          Fetch API + SSE                            │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │ HTTP / SSE
-┌──────────────────────────────┴──────────────────────────────────────┐
-│                        Flask Backend (app.py)                       │
-│                                                                     │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │                      REST API Routes                         │   │
-│  │  /library    /notebooks    /upload    /import-enex           │   │
-│  │  /tags    /saved-searches    /library/bulk                   │   │
-│  │  /library/<id>/text    /transcribe    /build-topic-map       │   │
-│  └──────┬───────────┬──────────────┬───────────────┬────────────┘   │
-│         │           │              │               │                │
-│  ┌──────┴──┐ ┌──────┴──────┐ ┌────┴────┐ ┌───────┴──────────┐     │
-│  │ SQLite  │ │   Whisper   │ │  ffmpeg  │ │  OpenAI GPT-4o   │     │
-│  │   DB    │ │  (medium)   │ │ ffprobe  │ │     -mini        │     │
-│  │         │ │             │ │          │ │                   │     │
-│  │ files   │ │ Audio →     │ │ Audio    │ │ - Translation     │     │
-│  │ note-   │ │ Text        │ │ convert  │ │ - Topic map       │     │
-│  │ books   │ │ ~4.6GB RAM  │ │ & split  │ │   analysis        │     │
-│  │ attach  │ │             │ │          │ │                   │     │
-│  │ saved   │ │             │ │          │ │                   │     │
-│  │ cache   │ │             │ │          │ │                   │     │
-│  └─────────┘ └─────────────┘ └─────────┘ └───────────────────┘     │
-└─────────────────────────────────────────────────────────────────────┘
-
-Data Flow:
-  Audio Upload → ffmpeg (MP3) → Whisper (transcribe) → GPT (translate) → SQLite
-  Evernote .enex → XML parse → ENML→HTML → SQLite
-  Topic Map → All transcriptions → GPT (analyze) → vis.js graph
-```
+### UX
+- **Material Design 3** — M3 color system, typography, shape tokens, and elevation
+- **Resizable panels** — Drag handles on panel borders; sizes persisted
+- **Collapsible sidebars** — Toggle notebooks sidebar (Ctrl+\\) and notes panel (Ctrl+Shift+\\)
+- **Six themes** — Light (M3), Evernote (high contrast green), Dark, Midnight, Warm, Nord
 
 ## Tech Stack
 
@@ -117,7 +75,7 @@ Data Flow:
 | Backend | Flask + SQLite |
 | Transcription | OpenAI Whisper (medium model) |
 | AI | GPT-4o-mini (translation + topic analysis) |
-| Frontend | Vanilla JS, CSS custom properties |
+| Frontend | Vanilla JS, CSS custom properties, Material Design 3 |
 | Graph | vis.js |
 
 ## Setup

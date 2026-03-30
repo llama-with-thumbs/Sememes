@@ -75,7 +75,7 @@
             --bg-body: #e8e8e8;
             --bg-panel: #f5f5f5;
             --bg-surface: #fff;
-            --bg-surface-hover: #eeeeee;
+            --bg-surface-hover: #e0e0e0;
             --bg-graph: #f5f5f5;
             --border: #c0c0c0;
             --border-item: #d5d5d5;
@@ -1252,20 +1252,47 @@
             .ns-highlight-active { background: #cc6600; color: #fff; }
         }
 
+        /* Notebooks list view */
+        #notebooks-view {
+            flex: 1; display: none; flex-direction: column; overflow-y: auto;
+            padding: 32px 40px;
+        }
+        #notebooks-view.visible { display: flex; }
+        #notebooks-view h2 {
+            font-size: 1.3rem; font-weight: 700; color: var(--text-heading); margin-bottom: 20px;
+        }
+        .nv-item {
+            display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+            border-bottom: 1px solid var(--border-item); cursor: pointer;
+            transition: background 0.15s; border-radius: var(--radius-sm, 8px);
+        }
+        .nv-item:hover { background: var(--bg-surface-hover); }
+        .nv-item .nv-icon { font-size: 1.3rem; filter: grayscale(1); opacity: 0.7; flex-shrink: 0; }
+        .nv-item .nv-info { flex: 1; min-width: 0; }
+        .nv-item .nv-name { font-size: 0.95rem; font-weight: 500; color: var(--text-heading); }
+        .nv-item .nv-meta { font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; }
+        .nv-new-btn {
+            display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+            border: 1px dashed var(--border); border-radius: var(--radius-sm, 8px);
+            cursor: pointer; color: var(--text-muted); font-size: 0.90rem;
+            background: none; width: 100%; margin-top: 8px; transition: all 0.15s;
+        }
+        .nv-new-btn:hover { border-color: var(--accent); color: var(--accent); }
+
         /* Files panel */
         #files-panel {
-            display: none; flex: 1; flex-direction: column; background: var(--bg-surface);
+            display: none; flex: 1; flex-direction: row; background: var(--bg-surface);
             height: 100vh; overflow: hidden;
         }
         #files-panel.visible { display: flex; }
         #files-header {
-            padding: 24px 32px 0; display: flex; align-items: baseline; gap: 10px;
+            padding: 16px 16px 0; display: flex; align-items: baseline; gap: 10px;
         }
         #files-header h2 { font-size: 1.4rem; font-weight: 700; color: var(--text-heading); }
         #files-header .fh-count { font-size: 1rem; color: var(--text-faint); }
         #files-header .fh-size { margin-left: auto; font-size: 0.82rem; color: var(--text-faint); }
         #files-tabs {
-            display: flex; align-items: center; gap: 4px; padding: 12px 32px 0;
+            display: flex; align-items: center; gap: 4px; padding: 8px 16px 0; flex-wrap: wrap;
         }
         .files-tab {
             padding: 6px 14px; border-radius: 16px; border: 1px solid var(--border);
@@ -1289,11 +1316,14 @@
         }
         #files-search input:focus { border-color: var(--accent); }
         #files-body {
-            display: flex; flex: 1; min-height: 0; overflow: hidden;
+            display: flex; flex: 1; min-height: 0; overflow: hidden; width: 100%;
         }
         #files-list-col {
-            width: 380px; min-width: 280px; overflow-y: auto; border-right: 1px solid var(--border);
-            padding: 0 16px 20px;
+            width: 380px; min-width: 280px; border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        #files-list {
+            flex: 1; overflow-y: auto; padding: 0 16px 20px;
         }
         #files-preview-col {
             flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-surface);
@@ -1307,7 +1337,7 @@
         }
         #files-preview-content.visible { display: flex; }
         #files-preview-header {
-            padding: 16px 24px; border-bottom: 1px solid var(--border);
+            padding: 16px 24px 12px; border-bottom: 1px solid var(--border);
         }
         #files-preview-header .fp-name {
             font-size: 1.1rem; font-weight: 600; color: var(--text-heading); margin-bottom: 4px;
@@ -1507,9 +1537,10 @@
     <div id="notebooks-panel">
         <div class="resize-handle" id="nb-resize"></div>
         <button class="sidebar-toggle" id="nb-collapse-btn" title="Toggle sidebar (Ctrl+\)">&#9664;</button>
-        <div id="nb-nav-arrows">
-            <button id="nav-back-btn" title="Go back" disabled>&#8592;</button>
-            <button id="nav-forward-btn" title="Go forward" disabled>&#8594;</button>
+        <div style="display:flex;align-items:center;padding:12px 16px 4px">
+            <span style="font-size:1.1rem;font-weight:700;color:var(--text-heading);flex:1">Sememes</span>
+            <button id="nav-back-btn" title="Go back" disabled style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.2rem;padding:2px 4px">&#8592;</button>
+            <button id="nav-forward-btn" title="Go forward" disabled style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.2rem;padding:2px 4px">&#8594;</button>
         </div>
         <div id="nb-header">
             <!-- Search bar (Evernote-style) -->
@@ -1528,7 +1559,6 @@
                     <button id="nb-more-btn" title="More actions">&#8943;</button>
                     <div class="nb-more-menu" id="nb-more-menu">
                         <button id="nb-more-import">&#8615; Import (.enex)</button>
-                        <button id="nb-more-capture">&#9998; Quick Capture</button>
                         <button id="nb-more-export-json">&#8613; Export All (JSON)</button>
                         <button id="nb-more-export-enex">&#8613; Export All (ENEX)</button>
                         <button id="nb-more-new-nb">+ New Notebook</button>
@@ -1601,7 +1631,6 @@
                 </div>
                 <div id="notes-actions">
                     <button id="new-note-btn" title="New Note">+ New</button>
-                    <button id="quick-capture-btn" title="Quick Capture to Inbox (Ctrl+N)">&#9889;</button>
                     <button id="import-enex-btn" title="Import Evernote (.enex)">Import</button>
                 </div>
             </div>
@@ -1693,10 +1722,17 @@
 
         <!-- Home dashboard -->
         <div id="home-dashboard">
-            <h2>Sememes</h2>
+            <h2>Home</h2>
             <div class="home-stats" id="home-stats"></div>
             <div class="home-section-title">Notebooks</div>
             <div class="home-tiles" id="home-tiles"></div>
+        </div>
+
+        <!-- Notebooks list view -->
+        <div id="notebooks-view">
+            <h2>Notebooks</h2>
+            <div id="notebooks-list-items"></div>
+            <button class="nv-new-btn" id="nv-new-notebook-btn">+ New Notebook</button>
         </div>
 
         <!-- Active editor -->
@@ -1876,21 +1912,21 @@
 
     <!-- Files Panel -->
     <div id="files-panel">
-        <div id="files-header">
-            <h2>Files</h2>
-            <span class="fh-count" id="files-count">0</span>
-            <span class="fh-size" id="files-total-size">Total size: 0</span>
-        </div>
-        <div id="files-tabs">
-            <button class="files-tab active" data-ftype="">Files</button>
-            <button class="files-tab" data-ftype="media">Media</button>
-            <button class="files-tab" data-ftype="docs">Docs</button>
-            <span class="ft-spacer"></span>
-            <button id="files-upload-btn">+ Upload</button>
-            <input type="file" id="files-upload-input" style="display:none" multiple>
-        </div>
         <div id="files-body">
             <div id="files-list-col">
+                <div id="files-header">
+                    <h2>Files</h2>
+                    <span class="fh-count" id="files-count">0</span>
+                    <span class="fh-size" id="files-total-size">Total size: 0</span>
+                </div>
+                <div id="files-tabs">
+                    <button class="files-tab active" data-ftype="">Files</button>
+                    <button class="files-tab" data-ftype="media">Media</button>
+                    <button class="files-tab" data-ftype="docs">Docs</button>
+                    <span class="ft-spacer"></span>
+                    <button id="files-upload-btn">+ Upload</button>
+                    <input type="file" id="files-upload-input" style="display:none" multiple>
+                </div>
                 <div id="files-search" style="padding:12px 0">
                     <input type="text" id="files-search-input" placeholder="Search file..." style="width:100%">
                 </div>
@@ -2596,6 +2632,7 @@
         function showTopicMap() {
             currentFileId = null;
             document.getElementById("home-dashboard").classList.remove("visible");
+            document.getElementById("notebooks-view").classList.remove("visible");
             document.getElementById("files-panel").classList.remove("visible");
             editorActive.classList.remove("visible");
             editorEmpty.style.display = "none";
@@ -2638,10 +2675,6 @@
             nbMoreMenu.classList.remove("visible");
             document.getElementById("import-enex-btn").click();
         });
-        document.getElementById("nb-more-capture").addEventListener("click", () => {
-            nbMoreMenu.classList.remove("visible");
-            document.getElementById("quick-capture-btn").click();
-        });
         document.getElementById("nb-more-export-json").addEventListener("click", () => {
             nbMoreMenu.classList.remove("visible");
             window.location.href = "/library/export-all/json";
@@ -2656,14 +2689,22 @@
         });
 
         // Expandable nav sections
-        document.querySelectorAll("#nb-notebooks-toggle, #nb-tags-toggle, #nb-saved-toggle").forEach(toggle => {
+        document.querySelectorAll("#nb-tags-toggle, #nb-saved-toggle").forEach(toggle => {
             toggle.addEventListener("click", (e) => {
-                // Don't toggle if clicking the manage-tags gear button
                 if (e.target.closest(".tag-action-btn")) return;
                 const section = toggle.closest(".nb-nav-section");
                 section.classList.toggle("expanded");
                 localStorage.setItem("nb-section-" + section.id, section.classList.contains("expanded"));
             });
+        });
+        // Notebooks toggle — expand section AND show notebooks list
+        document.getElementById("nb-notebooks-toggle").addEventListener("click", () => {
+            const section = document.getElementById("nb-notebooks-section");
+            if (!section.classList.contains("expanded")) {
+                section.classList.add("expanded");
+                localStorage.setItem("nb-section-nb-notebooks-section", true);
+            }
+            showNotebooksView();
         });
         // Restore section states
         ["nb-notebooks-section", "nb-tags-section", "nb-saved-section"].forEach(id => {
@@ -2672,6 +2713,51 @@
             if (!section) return;
             if (saved === "false") section.classList.remove("expanded");
             else if (saved === "true") section.classList.add("expanded");
+        });
+
+        async function showNotebooksView() {
+            currentFileId = null;
+            // Hide everything else
+            document.getElementById("home-dashboard").classList.remove("visible");
+            document.getElementById("notebooks-view").classList.remove("visible");
+            document.getElementById("files-panel").classList.remove("visible");
+            editorActive.classList.remove("visible");
+            editorEmpty.style.display = "none";
+            document.getElementById("notes-panel").style.display = "none";
+            document.getElementById("editor-panel").style.display = "";
+            const tmP = document.getElementById("topicmap-panel");
+            tmP.classList.remove("visible"); tmP.style.flex = "";
+            // Show notebooks view
+            const nv = document.getElementById("notebooks-view");
+            nv.classList.add("visible");
+            // Render list
+            try {
+                const res = await fetch("/notebooks");
+                const data = await res.json();
+                const list = document.getElementById("notebooks-list-items");
+                list.innerHTML = "";
+                (data.notebooks || []).forEach(nb => {
+                    const div = document.createElement("div");
+                    div.className = "nv-item";
+                    const date = nb.created_at ? new Date(nb.created_at).toLocaleDateString() : "";
+                    div.innerHTML = `
+                        <span class="nv-icon">&#128211;</span>
+                        <div class="nv-info">
+                            <div class="nv-name">${escapeHtml(nb.name)}</div>
+                            <div class="nv-meta">${nb.note_count} note${nb.note_count !== 1 ? 's' : ''}${date ? ' &middot; Created ' + date : ''}</div>
+                        </div>
+                    `;
+                    div.addEventListener("click", () => {
+                        nv.classList.remove("visible");
+                        selectNotebook(nb.name);
+                    });
+                    list.appendChild(div);
+                });
+            } catch (e) { console.warn("Failed to load notebooks view:", e); }
+        }
+
+        document.getElementById("nv-new-notebook-btn").addEventListener("click", () => {
+            document.getElementById("new-nb-btn").click();
         });
 
         function showHomeDashboard() {
@@ -2753,6 +2839,7 @@
 
             // Hide home dashboard, restore panels, reset topic map when navigating away
             document.getElementById("home-dashboard").classList.remove("visible");
+            document.getElementById("notebooks-view").classList.remove("visible");
             document.getElementById("notes-panel").style.display = "";
             document.getElementById("editor-panel").style.display = "";
             const tmPanel = document.getElementById("topicmap-panel");
@@ -3566,6 +3653,7 @@
             errorDiv.style.display = "none";
             editorActive.classList.remove("visible");
             document.getElementById("home-dashboard").classList.remove("visible");
+            document.getElementById("notebooks-view").classList.remove("visible");
             document.getElementById("files-panel").classList.remove("visible");
             document.getElementById("notes-panel").style.display = "";
             document.getElementById("editor-panel").style.display = "";
@@ -4289,7 +4377,8 @@
         const quickCaptureBar = document.getElementById("quick-capture-bar");
         const quickCaptureInput = document.getElementById("quick-capture-input");
 
-        document.getElementById("quick-capture-btn").addEventListener("click", () => {
+        const quickCaptureBtn = document.getElementById("quick-capture-btn");
+        if (quickCaptureBtn) quickCaptureBtn.addEventListener("click", () => {
             quickCaptureBar.classList.toggle("visible");
             if (quickCaptureBar.classList.contains("visible")) {
                 quickCaptureInput.focus();
@@ -4339,15 +4428,6 @@
                 openFile(data.file_id);
             } catch (e) { showError(e.message); }
         }
-
-        // Global Ctrl+N shortcut for quick capture
-        document.addEventListener("keydown", (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === "n") {
-                e.preventDefault();
-                quickCaptureBar.classList.add("visible");
-                quickCaptureInput.focus();
-            }
-        });
 
         // --- Drag-and-Drop into Editor ---
         [textEnglish, textOriginal].forEach(editor => {
@@ -4596,7 +4676,6 @@
 
         const commands = [
             { name: "New Note", icon: "+", shortcut: "", action: () => document.getElementById("new-note-btn").click() },
-            { name: "Quick Capture", icon: "\u26A1", shortcut: "Ctrl+N", action: () => document.getElementById("quick-capture-btn").click() },
             { name: "Toggle Sidebar", icon: "\u2630", shortcut: "Ctrl+\\", action: toggleNotebooksPanel },
             { name: "Toggle Notes Panel", icon: "\u2261", shortcut: "Ctrl+Shift+\\", action: toggleNotesPanel },
             { name: "Compact View", icon: "\u2261", shortcut: "", action: () => denseToggle.click() },
@@ -4990,6 +5069,7 @@
         function showFilesPanel() {
             currentFileId = null;
             document.getElementById("home-dashboard").classList.remove("visible");
+            document.getElementById("notebooks-view").classList.remove("visible");
             editorActive.classList.remove("visible");
             editorEmpty.style.display = "none";
             document.getElementById("notes-panel").style.display = "none";
