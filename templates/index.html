@@ -2697,14 +2697,21 @@
                 localStorage.setItem("nb-section-" + section.id, section.classList.contains("expanded"));
             });
         });
-        // Notebooks toggle — expand section AND show notebooks list
-        document.getElementById("nb-notebooks-toggle").addEventListener("click", () => {
+        // Notebooks toggle — arrow expands/collapses list, clicking name shows notebooks view
+        document.getElementById("nb-notebooks-toggle").addEventListener("click", (e) => {
             const section = document.getElementById("nb-notebooks-section");
-            if (!section.classList.contains("expanded")) {
-                section.classList.add("expanded");
-                localStorage.setItem("nb-section-nb-notebooks-section", true);
+            if (e.target.closest(".nb-expand-arrow")) {
+                // Arrow click — just toggle the sub-list
+                section.classList.toggle("expanded");
+                localStorage.setItem("nb-section-nb-notebooks-section", section.classList.contains("expanded"));
+            } else {
+                // Name/icon click — expand list and show notebooks view
+                if (!section.classList.contains("expanded")) {
+                    section.classList.add("expanded");
+                    localStorage.setItem("nb-section-nb-notebooks-section", true);
+                }
+                showNotebooksView();
             }
-            showNotebooksView();
         });
         // Restore section states
         ["nb-notebooks-section", "nb-tags-section", "nb-saved-section"].forEach(id => {
@@ -2771,13 +2778,14 @@
                 el.classList.toggle("active", el.dataset.nb === "all");
             });
 
-            // Reset files panel and topic map if they were full-screen
+            // Hide everything else
             document.getElementById("files-panel").classList.remove("visible");
+            document.getElementById("notebooks-view").classList.remove("visible");
             const tmP = document.getElementById("topicmap-panel");
             tmP.classList.remove("visible"); tmP.style.flex = "";
-            // Restore editor panel, hide notes panel; show dashboard
-            document.getElementById("editor-panel").style.display = "";
+            // Hide both panels; show dashboard in editor-panel
             document.getElementById("notes-panel").style.display = "none";
+            document.getElementById("editor-panel").style.display = "";
             editorActive.classList.remove("visible");
             editorEmpty.style.display = "none";
             const dashboard = document.getElementById("home-dashboard");
@@ -2837,9 +2845,10 @@
             currentNotebook = notebook;
             currentTagFilter = null;
 
-            // Hide home dashboard, restore panels, reset topic map when navigating away
+            // Hide all overlay views, restore panels when navigating away
             document.getElementById("home-dashboard").classList.remove("visible");
             document.getElementById("notebooks-view").classList.remove("visible");
+            document.getElementById("files-panel").classList.remove("visible");
             document.getElementById("notes-panel").style.display = "";
             document.getElementById("editor-panel").style.display = "";
             const tmPanel = document.getElementById("topicmap-panel");
