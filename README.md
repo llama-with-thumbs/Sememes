@@ -68,23 +68,83 @@ Sememes is a personal knowledge tool that records voice notes, transcribes with 
 - **Collapsible sidebars** — Toggle notebooks sidebar (Ctrl+\\) and notes panel (Ctrl+Shift+\\)
 - **Six themes** — Light (M3), Evernote (high contrast green), Dark, Midnight, Warm, Nord
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                      Browser                            │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐  │
+│  │Notebooks │  │  Notes   │  │  Editor  │  │ Topic  │  │
+│  │  Panel   │  │  Panel   │  │  Panel   │  │  Map   │  │
+│  └──────────┘  └──────────┘  └──────────┘  └────────┘  │
+└────────────────────────┬────────────────────────────────┘
+                         │ REST API
+┌────────────────────────┴────────────────────────────────┐
+│                   Flask (app.py)                         │
+│  ┌────────────┐  ┌────────────┐  ┌───────────────────┐  │
+│  │  storage   │  │    db      │  │   transcribe      │  │
+│  │  .py       │  │    .py     │  │   .py (Whisper)   │  │
+│  └─────┬──────┘  └─────┬──────┘  └───────────────────┘  │
+└────────┼───────────────┼────────────────────────────────┘
+         │               │
+    ┌────┴────┐    ┌─────┴──────┐
+    │  MinIO  │    │ PostgreSQL │    ┌───────┐
+    │ / Local │    │ / SQLite   │    │ Redis │
+    └─────────┘    └────────────┘    └───────┘
+```
+
+### Modules
+
+| File | Purpose |
+|------|---------|
+| `app.py` | Flask routes, business logic, API endpoints |
+| `db.py` | Database abstraction — SQLite or PostgreSQL via `DATABASE_URL` |
+| `storage.py` | File storage abstraction — local filesystem or MinIO (S3-compatible) |
+| `transcribe.py` | Whisper audio transcription with chunked processing |
+| `templates/index.html` | Single-page frontend — vanilla JS, CSS custom properties, M3 design |
+
+### Database Schema
+
+| Table | Purpose |
+|-------|---------|
+| `files` | Notes — id, name, transcription (original + English), tags, notebook, timestamps |
+| `notebooks` | Notebook names with optional stack grouping |
+| `attachments` | Files attached to notes — images, PDFs, documents |
+| `note_versions` | Auto-snapshots before every edit (last 50 per note) |
+| `cache` | Topic map cache with MD5 hash invalidation |
+| `saved_searches` | Stored search queries with filters |
+
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Flask + SQLite |
+| Backend | Flask (Python 3.10) |
+| Database | SQLite (default) or PostgreSQL |
+| Storage | Local filesystem (default) or MinIO |
+| Cache | Redis (optional) |
 | Transcription | OpenAI Whisper (medium model) |
-| AI | GPT-4o-mini (translation + topic analysis) |
+| AI | GPT-4o-mini (translation + topic extraction) |
 | Frontend | Vanilla JS, CSS custom properties, Material Design 3 |
 | Graph | vis.js |
+| Containerization | Docker + Docker Compose |
 
 ## Setup
+
+### Local
 
 1. Clone the repo
 2. Install dependencies: `pip install -r requirements.txt`
 3. Install [ffmpeg](https://ffmpeg.org/) (required for audio conversion)
 4. Copy `.env.example` to `.env` and add your `OPENAI_API_KEY`
 5. Run: `python app.py`
-6. Open http://127.0.0.1:5000
+6. Open http://localhost:5000
 
 > **Note:** First launch downloads the Whisper medium model (~1.5 GB) and loads it into RAM (~4.6 GB). The server takes ~35 seconds to start.
+
+### Docker
+
+1. Copy `.env.example` to `.env` and add your `OPENAI_API_KEY`
+2. Run: `docker compose up -d`
+3. Open http://localhost:5000
+
+Docker Compose starts PostgreSQL, MinIO, Redis, and the app. The first start takes a few minutes while the Whisper model downloads inside the container.

@@ -15,21 +15,18 @@ from dotenv import load_dotenv
 from flask import Flask, Response, request, jsonify, render_template, send_file
 from openai import OpenAI
 
+from db import get_db, init_db_postgres, is_postgres
+import storage
+
 load_dotenv()
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500MB max upload
 
 BASE_DIR = os.path.dirname(__file__)
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
-LIBRARY_FOLDER = os.path.join(BASE_DIR, "library")
-DB_PATH = os.path.join(BASE_DIR, "library.db")
-
-ATTACHMENTS_FOLDER = os.path.join(BASE_DIR, "attachments")
-
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(LIBRARY_FOLDER, exist_ok=True)
-os.makedirs(ATTACHMENTS_FOLDER, exist_ok=True)
+UPLOAD_FOLDER = storage.UPLOAD_FOLDER
+LIBRARY_FOLDER = storage.LIBRARY_FOLDER
+ATTACHMENTS_FOLDER = storage.ATTACHMENTS_FOLDER
 
 ALLOWED_EXTENSIONS = {"m4a", "mp3", "wav", "ogg", "flac", "webm", "mp4", "wma"}
 TEXT_EXTENSIONS = {"txt", "md", "csv", "json", "log", "rtf"}
@@ -40,13 +37,28 @@ DEFAULT_NOTEBOOK = "My Notebook"
 
 # --- Database ---
 
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
+DB_PATH = os.path.join(BASE_DIR, "library.db")
 
 def init_db():
+    if is_postgres():
+        conn = get_db()
+        init_db_postgres(conn)
+        # Ensure default notebooks
+        conn.execute(
+            "INSERT INTO notebooks (name, created_at) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+            (DEFAULT_NOTEBOOK, datetime.now().isoformat())
+        )
+        conn.execute(
+            "INSERT INTO notebooks (name, created_at) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+            ("Inbox", datetime.now().isoformat())
+        )
+        conn.execute(
+            "UPDATE files SET notebook = %s WHERE notebook IS NULL OR notebook = ''",
+            (DEFAULT_NOTEBOOK,)
+        )
+        conn.commit()
+        conn.close()
+        return
     conn = get_db()
     conn.execute("""
         CREATE TABLE IF NOT EXISTS files (
@@ -83,7 +95,6 @@ def init_db():
         )
     """)
     # Ensure default notebook and Inbox exist, assign orphan notes
-    DEFAULT_NOTEBOOK = "My Notebook"
     INBOX_NOTEBOOK = "Inbox"
     conn.execute(
         "INSERT OR IGNORE INTO notebooks (name, created_at) VALUES (?, ?)",
@@ -1692,4 +1703,4 @@ def format_duration(seconds):
 
 
 if __name__ == "__main__":
-    app.run(debug=False, host="127.0.0.1", port=5000)
+    app.run(debug=False, host="0.0.0.0", port=5000)

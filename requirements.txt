@@ -2,3 +2,6 @@ openai-whisper
 flask
 openai
 python-dotenv
+psycopg2-binary
+minio
+redis
