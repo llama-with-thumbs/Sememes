@@ -60,6 +60,9 @@ class PgConnection:
     def commit(self):
         self._conn.commit()
 
+    def rollback(self):
+        self._conn.rollback()
+
     def close(self):
         self._conn.close()
 
@@ -104,6 +107,17 @@ def get_db():
 def init_db_postgres(conn):
     """Create tables for PostgreSQL."""
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            display_name TEXT,
+            is_admin INTEGER DEFAULT 0,
+            created_at TEXT,
+            last_login TEXT
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS files (
             id TEXT PRIMARY KEY,
             original_name TEXT,
@@ -118,14 +132,18 @@ def init_db_postgres(conn):
             tags TEXT,
             notebook TEXT,
             starred INTEGER DEFAULT 0,
-            trashed_at TEXT
+            trashed_at TEXT,
+            user_id TEXT
         )
     """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS notebooks (
-            name TEXT PRIMARY KEY,
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
             created_at TEXT,
-            stack TEXT
+            stack TEXT,
+            user_id TEXT,
+            UNIQUE(user_id, name)
         )
     """)
     conn.execute("""
@@ -134,7 +152,8 @@ def init_db_postgres(conn):
             name TEXT,
             query TEXT,
             filters TEXT,
-            created_at TEXT
+            created_at TEXT,
+            user_id TEXT
         )
     """)
     conn.execute("""
@@ -144,7 +163,8 @@ def init_db_postgres(conn):
             filename TEXT,
             mime_type TEXT,
             size INTEGER,
-            created_at TEXT
+            created_at TEXT,
+            user_id TEXT
         )
     """)
     conn.execute("""
@@ -152,7 +172,8 @@ def init_db_postgres(conn):
             key TEXT PRIMARY KEY,
             value TEXT,
             file_hash TEXT,
-            updated_at TEXT
+            updated_at TEXT,
+            user_id TEXT
         )
     """)
     conn.execute("""
@@ -163,9 +184,29 @@ def init_db_postgres(conn):
             transcription TEXT,
             transcription_en TEXT,
             created_at TEXT,
-            source TEXT DEFAULT 'autosave'
+            source TEXT DEFAULT 'autosave',
+            user_id TEXT
         )
     """)
+    # Migrate: add user_id to existing tables that lack it
+    def _try_alter(conn, sql):
+        try:
+            conn.execute(sql)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+    for table in ["files", "notebooks", "saved_searches", "attachments", "cache", "note_versions"]:
+        _try_alter(conn, f"ALTER TABLE {table} ADD COLUMN user_id TEXT")
+    # Migrate notebooks: add id column if missing (old schema had name as PK)
+    _try_alter(conn, "ALTER TABLE notebooks ADD COLUMN id TEXT")
+    # Migrate notebooks: add name column as non-PK if needed
+    _try_alter(conn, "ALTER TABLE notebooks ADD COLUMN name TEXT")
+    # Indexes
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_files_user ON files(user_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_notebooks_user ON notebooks(user_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_saved_searches_user ON saved_searches(user_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_attachments_user ON attachments(user_id)")
     conn.commit()
 
 

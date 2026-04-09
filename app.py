@@ -8,20 +8,29 @@ import sqlite3
 import subprocess
 import uuid
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import whisper
 from dotenv import load_dotenv
-from flask import Flask, Response, request, jsonify, render_template, send_file
+from flask import Flask, Response, request, jsonify, render_template, send_file, redirect, url_for
+from flask_login import login_required, current_user
 from openai import OpenAI
+from werkzeug.security import generate_password_hash
 
 from db import get_db, init_db_postgres, is_postgres
+from auth import auth_bp, login_manager
 import storage
 
 load_dotenv()
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500MB max upload
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+app.config["REMEMBER_COOKIE_DURATION"] = timedelta(days=30)
+
+# Auth setup
+login_manager.init_app(app)
+app.register_blueprint(auth_bp)
 
 BASE_DIR = os.path.dirname(__file__)
 UPLOAD_FOLDER = storage.UPLOAD_FOLDER
@@ -35,6 +44,24 @@ CHUNK_SECONDS = 120  # 2-minute chunks for progress tracking
 DEFAULT_NOTEBOOK = "My Notebook"
 
 
+# --- Auth: require login for all routes except auth endpoints ---
+
+@app.before_request
+def require_login():
+    allowed_endpoints = {"auth.login", "auth.register", "static"}
+    if request.endpoint in allowed_endpoints:
+        return
+    if not current_user.is_authenticated:
+        if request.path.startswith("/api") or request.is_json or request.headers.get("Accept") == "application/json":
+            return jsonify({"error": "Authentication required"}), 401
+        return redirect(url_for("auth.login"))
+
+
+def uid():
+    """Get the current user's ID."""
+    return current_user.id
+
+
 # --- Database ---
 
 DB_PATH = os.path.join(BASE_DIR, "library.db")
@@ -43,23 +70,23 @@ def init_db():
     if is_postgres():
         conn = get_db()
         init_db_postgres(conn)
-        # Ensure default notebooks
-        conn.execute(
-            "INSERT INTO notebooks (name, created_at) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-            (DEFAULT_NOTEBOOK, datetime.now().isoformat())
-        )
-        conn.execute(
-            "INSERT INTO notebooks (name, created_at) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-            ("Inbox", datetime.now().isoformat())
-        )
-        conn.execute(
-            "UPDATE files SET notebook = %s WHERE notebook IS NULL OR notebook = ''",
-            (DEFAULT_NOTEBOOK,)
-        )
-        conn.commit()
+        # Create default admin and migrate orphan data
+        _migrate_to_multiuser(conn)
         conn.close()
         return
+
     conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            display_name TEXT,
+            is_admin INTEGER DEFAULT 0,
+            created_at TEXT,
+            last_login TEXT
+        )
+    """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS files (
             id TEXT PRIMARY KEY,
@@ -72,7 +99,7 @@ def init_db():
             created_at TEXT
         )
     """)
-    # Migrate: add transcription_en if missing
+    # Migrate: add columns if missing
     cols = [r[1] for r in conn.execute("PRAGMA table_info(files)").fetchall()]
     if "transcription_en" not in cols:
         conn.execute("ALTER TABLE files ADD COLUMN transcription_en TEXT")
@@ -88,37 +115,26 @@ def init_db():
         conn.execute("ALTER TABLE files ADD COLUMN starred INTEGER DEFAULT 0")
     if "trashed_at" not in cols:
         conn.execute("ALTER TABLE files ADD COLUMN trashed_at TEXT")
+    if "user_id" not in cols:
+        conn.execute("ALTER TABLE files ADD COLUMN user_id TEXT")
+
     conn.execute("""
         CREATE TABLE IF NOT EXISTS notebooks (
-            name TEXT PRIMARY KEY,
-            created_at TEXT
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            created_at TEXT,
+            stack TEXT,
+            user_id TEXT
         )
     """)
-    # Ensure default notebook and Inbox exist, assign orphan notes
-    INBOX_NOTEBOOK = "Inbox"
-    conn.execute(
-        "INSERT OR IGNORE INTO notebooks (name, created_at) VALUES (?, ?)",
-        (DEFAULT_NOTEBOOK, datetime.now().isoformat())
-    )
-    conn.execute(
-        "INSERT OR IGNORE INTO notebooks (name, created_at) VALUES (?, ?)",
-        (INBOX_NOTEBOOK, datetime.now().isoformat())
-    )
-    conn.execute(
-        "UPDATE files SET notebook = ? WHERE notebook IS NULL OR notebook = ''",
-        (DEFAULT_NOTEBOOK,)
-    )
-    # Migrate: add stack column to notebooks
-    nb_cols = [r[1] for r in conn.execute("PRAGMA table_info(notebooks)").fetchall()]
-    if "stack" not in nb_cols:
-        conn.execute("ALTER TABLE notebooks ADD COLUMN stack TEXT")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS saved_searches (
             id TEXT PRIMARY KEY,
             name TEXT,
             query TEXT,
             filters TEXT,
-            created_at TEXT
+            created_at TEXT,
+            user_id TEXT
         )
     """)
     conn.execute("""
@@ -129,6 +145,7 @@ def init_db():
             mime_type TEXT,
             size INTEGER,
             created_at TEXT,
+            user_id TEXT,
             FOREIGN KEY (file_id) REFERENCES files(id)
         )
     """)
@@ -137,7 +154,8 @@ def init_db():
             key TEXT PRIMARY KEY,
             value TEXT,
             file_hash TEXT,
-            updated_at TEXT
+            updated_at TEXT,
+            user_id TEXT
         )
     """)
     conn.execute("""
@@ -149,17 +167,101 @@ def init_db():
             transcription_en TEXT,
             created_at TEXT,
             source TEXT DEFAULT 'autosave',
+            user_id TEXT,
             FOREIGN KEY (file_id) REFERENCES files(id)
         )
     """)
+    # Migrate: add user_id to tables that existed before multi-user
+    for table in ["saved_searches", "attachments", "cache", "note_versions"]:
+        t_cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+        if "user_id" not in t_cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN user_id TEXT")
+
     conn.commit()
+
+    # Handle old notebooks table migration (name was PK, now id is PK)
+    nb_cols = [r[1] for r in conn.execute("PRAGMA table_info(notebooks)").fetchall()]
+    if "user_id" not in nb_cols:
+        # Old schema — migrate
+        conn.execute("ALTER TABLE notebooks RENAME TO notebooks_old")
+        conn.execute("""
+            CREATE TABLE notebooks (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                created_at TEXT,
+                stack TEXT,
+                user_id TEXT
+            )
+        """)
+        old_rows = conn.execute("SELECT name, created_at, stack FROM notebooks_old").fetchall()
+        for r in old_rows:
+            conn.execute(
+                "INSERT INTO notebooks (id, name, created_at, stack) VALUES (?, ?, ?, ?)",
+                (str(uuid.uuid4()), r["name"], r["created_at"], r["stack"] if "stack" in r.keys() else None)
+            )
+        conn.execute("DROP TABLE notebooks_old")
+        conn.commit()
+
+    # Create default admin and migrate orphan data
+    _migrate_to_multiuser(conn)
     conn.close()
 
 
-def compute_library_hash(conn):
+def _migrate_to_multiuser(conn):
+    """Assign orphan data (user_id IS NULL) to a default admin user."""
+    # Check if there are any orphan rows
+    orphan = conn.execute("SELECT COUNT(*) as c FROM files WHERE user_id IS NULL").fetchone()["c"]
+    if orphan == 0:
+        return
+
+    # Find or create admin user
+    admin = conn.execute("SELECT id FROM users WHERE is_admin = 1 ORDER BY created_at LIMIT 1").fetchone()
+    if admin:
+        admin_id = admin["id"]
+    else:
+        admin_id = str(uuid.uuid4())
+        email = os.environ.get("DEFAULT_ADMIN_EMAIL", "admin@localhost")
+        password = os.environ.get("DEFAULT_ADMIN_PASSWORD", "admin")
+        conn.execute(
+            "INSERT INTO users (id, email, password_hash, display_name, is_admin, created_at) VALUES (?, ?, ?, ?, 1, ?)",
+            (admin_id, email, generate_password_hash(password), "Admin", datetime.now().isoformat())
+        )
+        print(f"Created default admin user: {email} (password: {password})")
+        print("CHANGE THIS PASSWORD after first login!")
+
+        # Create default notebooks for admin (only if not migrating existing ones)
+        now = datetime.now().isoformat()
+        existing_nbs = conn.execute("SELECT name FROM notebooks WHERE name IN (?, ?)", (DEFAULT_NOTEBOOK, "Inbox")).fetchall()
+        existing_nb_names = {r["name"] for r in existing_nbs}
+        if DEFAULT_NOTEBOOK not in existing_nb_names:
+            conn.execute(
+                "INSERT INTO notebooks (id, name, created_at, user_id) VALUES (?, ?, ?, ?)",
+                (str(uuid.uuid4()), DEFAULT_NOTEBOOK, now, admin_id)
+            )
+        if "Inbox" not in existing_nb_names:
+            conn.execute(
+                "INSERT INTO notebooks (id, name, created_at, user_id) VALUES (?, ?, ?, ?)",
+                (str(uuid.uuid4()), "Inbox", now, admin_id)
+            )
+
+    # Assign UUIDs to notebooks that lack an id (migrated from old name-as-PK schema)
+    old_nbs = conn.execute("SELECT name FROM notebooks WHERE id IS NULL").fetchall()
+    for nb in old_nbs:
+        conn.execute("UPDATE notebooks SET id = ? WHERE name = ? AND id IS NULL", (str(uuid.uuid4()), nb["name"]))
+
+    # Migrate all orphan data
+    for table in ["files", "notebooks", "saved_searches", "attachments", "cache", "note_versions"]:
+        conn.execute(f"UPDATE {table} SET user_id = ? WHERE user_id IS NULL", (admin_id,))
+
+    conn.commit()
+    print(f"Migrated orphan data to admin user ({admin_id})")
+
+
+def compute_library_hash(conn, user_id):
     rows = conn.execute(
         "SELECT id, length(COALESCE(transcription_en, transcription, '')) as tlen "
-        "FROM files WHERE transcription IS NOT NULL ORDER BY id"
+        "FROM files WHERE transcription IS NOT NULL AND user_id = ? ORDER BY id",
+        (user_id,)
     ).fetchall()
     fingerprint = "|".join(f"{r['id']}:{r['tlen']}" for r in rows)
     return hashlib.md5(fingerprint.encode()).hexdigest()
@@ -244,7 +346,7 @@ def translate_to_english(text):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", user=current_user)
 
 
 @app.route("/upload", methods=["POST"])
@@ -273,8 +375,8 @@ def upload():
                 text_content = f.read()
             conn = get_db()
             conn.execute(
-                "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at, notebook) VALUES (?, ?, NULL, 0, ?, ?, ?)",
-                (file_id, file.filename, text_content, datetime.now().isoformat(), DEFAULT_NOTEBOOK)
+                "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at, notebook, user_id) VALUES (?, ?, NULL, 0, ?, ?, ?, ?)",
+                (file_id, file.filename, text_content, datetime.now().isoformat(), DEFAULT_NOTEBOOK, uid())
             )
             conn.commit()
             conn.close()
@@ -288,8 +390,8 @@ def upload():
 
         conn = get_db()
         conn.execute(
-            "INSERT INTO files (id, original_name, mp3_path, duration, created_at, notebook) VALUES (?, ?, ?, ?, ?, ?)",
-            (file_id, file.filename, mp3_filename, duration, datetime.now().isoformat(), DEFAULT_NOTEBOOK)
+            "INSERT INTO files (id, original_name, mp3_path, duration, created_at, notebook, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (file_id, file.filename, mp3_filename, duration, datetime.now().isoformat(), DEFAULT_NOTEBOOK, uid())
         )
         conn.commit()
         conn.close()
@@ -305,7 +407,7 @@ def upload():
 def transcribe_library_file(file_id):
     """Transcribe an existing library file via SSE."""
     conn = get_db()
-    row = conn.execute("SELECT mp3_path, original_name FROM files WHERE id = ?", (file_id,)).fetchone()
+    row = conn.execute("SELECT mp3_path, original_name FROM files WHERE id = ? AND user_id = ?", (file_id, uid())).fetchone()
     conn.close()
     if not row:
         return jsonify({"error": "File not found"}), 404
@@ -349,8 +451,8 @@ def transcribe_library_file(file_id):
 
             conn2 = get_db()
             conn2.execute(
-                "UPDATE files SET transcription = ?, transcription_en = ? WHERE id = ?",
-                (full_text, text_en, file_id)
+                "UPDATE files SET transcription = ?, transcription_en = ? WHERE id = ? AND user_id = ?",
+                (full_text, text_en, file_id, uid())
             )
             conn2.commit()
             conn2.close()
@@ -386,7 +488,8 @@ def library_list():
              "COALESCE(transcription_en, transcription, '') as raw_text, "
              "transcription IS NOT NULL as has_transcription FROM files")
     params = []
-    conditions = []
+    conditions = ["user_id = ?"]
+    params.append(uid())
 
     if view == "trash":
         conditions.append("trashed_at IS NOT NULL")
@@ -475,18 +578,20 @@ def list_notebooks():
     nb_rows = conn.execute(
         "SELECT n.name, n.stack, n.created_at, COALESCE(c.cnt, 0) as note_count FROM notebooks n "
         "LEFT JOIN (SELECT notebook, COUNT(*) as cnt FROM files "
-        "WHERE notebook IS NOT NULL AND notebook != '' AND trashed_at IS NULL "
+        "WHERE notebook IS NOT NULL AND notebook != '' AND trashed_at IS NULL AND user_id = ? "
         "GROUP BY notebook) c ON c.notebook = n.name "
-        "ORDER BY n.name"
+        "WHERE n.user_id = ? ORDER BY n.name",
+        (uid(), uid())
     ).fetchall()
     file_nbs = conn.execute(
         "SELECT notebook as name, COUNT(*) as note_count FROM files "
-        "WHERE notebook IS NOT NULL AND notebook != '' AND trashed_at IS NULL "
-        "GROUP BY notebook ORDER BY notebook"
+        "WHERE notebook IS NOT NULL AND notebook != '' AND trashed_at IS NULL AND user_id = ? "
+        "GROUP BY notebook ORDER BY notebook",
+        (uid(),)
     ).fetchall()
-    total = conn.execute("SELECT COUNT(*) as c FROM files WHERE trashed_at IS NULL").fetchone()["c"]
-    starred = conn.execute("SELECT COUNT(*) as c FROM files WHERE starred = 1 AND trashed_at IS NULL").fetchone()["c"]
-    trash_count = conn.execute("SELECT COUNT(*) as c FROM files WHERE trashed_at IS NOT NULL").fetchone()["c"]
+    total = conn.execute("SELECT COUNT(*) as c FROM files WHERE trashed_at IS NULL AND user_id = ?", (uid(),)).fetchone()["c"]
+    starred = conn.execute("SELECT COUNT(*) as c FROM files WHERE starred = 1 AND trashed_at IS NULL AND user_id = ?", (uid(),)).fetchone()["c"]
+    trash_count = conn.execute("SELECT COUNT(*) as c FROM files WHERE trashed_at IS NOT NULL AND user_id = ?", (uid(),)).fetchone()["c"]
     conn.close()
 
     known = {r["name"] for r in nb_rows}
@@ -505,11 +610,16 @@ def create_notebook():
     if not name:
         return jsonify({"error": "Name required"}), 400
     conn = get_db()
+    # Check if user already has a notebook with this name
+    existing = conn.execute("SELECT id FROM notebooks WHERE name = ? AND user_id = ?", (name, uid())).fetchone()
+    if existing:
+        conn.close()
+        return jsonify({"error": "Notebook already exists"}), 400
     try:
-        conn.execute("INSERT INTO notebooks (name, created_at) VALUES (?, ?)",
-                     (name, datetime.now().isoformat()))
+        conn.execute("INSERT INTO notebooks (id, name, created_at, user_id) VALUES (?, ?, ?, ?)",
+                     (str(uuid.uuid4()), name, datetime.now().isoformat(), uid()))
         conn.commit()
-    except sqlite3.IntegrityError:
+    except (sqlite3.IntegrityError, Exception):
         conn.close()
         return jsonify({"error": "Notebook already exists"}), 400
     conn.close()
@@ -521,8 +631,8 @@ def delete_notebook():
     data = request.get_json()
     name = data.get("name", "")
     conn = get_db()
-    conn.execute("UPDATE files SET notebook = ? WHERE notebook = ?", (DEFAULT_NOTEBOOK, name))
-    conn.execute("DELETE FROM notebooks WHERE name = ?", (name,))
+    conn.execute("UPDATE files SET notebook = ? WHERE notebook = ? AND user_id = ?", (DEFAULT_NOTEBOOK, name, uid()))
+    conn.execute("DELETE FROM notebooks WHERE name = ? AND user_id = ?", (name, uid()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -537,14 +647,14 @@ def create_note():
     base_name = f"Note {datetime.now().strftime('%Y-%m-%d')}"
     conn = get_db()
     existing = conn.execute(
-        "SELECT original_name FROM files WHERE original_name LIKE ?", (base_name + "%",)
+        "SELECT original_name FROM files WHERE original_name LIKE ? AND user_id = ?", (base_name + "%", uid())
     ).fetchall()
     if existing:
         base_name = f"{base_name} ({len(existing) + 1})"
     conn.execute(
-        "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at, notebook) "
-        "VALUES (?, ?, NULL, 0, '', ?, ?)",
-        (file_id, base_name, datetime.now().isoformat(), notebook)
+        "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at, notebook, user_id) "
+        "VALUES (?, ?, NULL, 0, '', ?, ?, ?)",
+        (file_id, base_name, datetime.now().isoformat(), notebook, uid())
     )
     conn.commit()
     conn.close()
@@ -563,9 +673,9 @@ def quick_capture():
         title = f"Quick Note {now.strftime('%Y-%m-%d %H:%M')}"
     conn = get_db()
     conn.execute(
-        "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at, notebook) "
-        "VALUES (?, ?, NULL, 0, ?, ?, 'Inbox')",
-        (file_id, title, content, now.isoformat())
+        "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at, notebook, user_id) "
+        "VALUES (?, ?, NULL, 0, ?, ?, 'Inbox', ?)",
+        (file_id, title, content, now.isoformat(), uid())
     )
     conn.commit()
     conn.close()
@@ -575,7 +685,7 @@ def quick_capture():
 @app.route("/library/<file_id>")
 def library_get(file_id):
     conn = get_db()
-    row = conn.execute("SELECT * FROM files WHERE id = ?", (file_id,)).fetchone()
+    row = conn.execute("SELECT * FROM files WHERE id = ? AND user_id = ?", (file_id, uid())).fetchone()
     conn.close()
     if not row:
         return jsonify({"error": "File not found"}), 404
@@ -591,12 +701,12 @@ def library_update_text(file_id):
     # Conflict protection: check if note was modified since client last loaded it
     expected_updated = data.get("expected_updated_at")
     if expected_updated:
-        row = conn.execute("SELECT updated_at FROM files WHERE id = ?", (file_id,)).fetchone()
+        row = conn.execute("SELECT updated_at FROM files WHERE id = ? AND user_id = ?", (file_id, uid())).fetchone()
         if row and row["updated_at"] and row["updated_at"] != expected_updated:
             conn.close()
             return jsonify({"error": "conflict", "server_updated_at": row["updated_at"]}), 409
     # Save version snapshot before overwriting
-    old = conn.execute("SELECT original_name, transcription, transcription_en FROM files WHERE id = ?", (file_id,)).fetchone()
+    old = conn.execute("SELECT original_name, transcription, transcription_en FROM files WHERE id = ? AND user_id = ?", (file_id, uid())).fetchone()
     if old and (old["transcription"] or old["transcription_en"]):
         # Only save version if content actually changed
         old_text = old["transcription"] or ""
@@ -605,10 +715,10 @@ def library_update_text(file_id):
         new_text_en = data.get("text_en", old_text_en)
         if old_text != new_text or old_text_en != new_text_en:
             conn.execute(
-                "INSERT INTO note_versions (id, file_id, title, transcription, transcription_en, created_at, source) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO note_versions (id, file_id, title, transcription, transcription_en, created_at, source, user_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (str(uuid.uuid4()), file_id, old["original_name"], old_text, old_text_en,
-                 datetime.now().isoformat(), "autosave")
+                 datetime.now().isoformat(), "autosave", uid())
             )
             # Keep only last 50 versions per note
             conn.execute(
@@ -617,11 +727,11 @@ def library_update_text(file_id):
                 (file_id, file_id)
             )
     if "text" in data:
-        conn.execute("UPDATE files SET transcription = ? WHERE id = ?", (data["text"], file_id))
+        conn.execute("UPDATE files SET transcription = ? WHERE id = ? AND user_id = ?", (data["text"], file_id, uid()))
     if "text_en" in data:
-        conn.execute("UPDATE files SET transcription_en = ? WHERE id = ?", (data["text_en"], file_id))
+        conn.execute("UPDATE files SET transcription_en = ? WHERE id = ? AND user_id = ?", (data["text_en"], file_id, uid()))
     now = datetime.now().isoformat()
-    conn.execute("UPDATE files SET updated_at = ? WHERE id = ?", (now, file_id))
+    conn.execute("UPDATE files SET updated_at = ? WHERE id = ? AND user_id = ?", (now, file_id, uid()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True, "updated_at": now})
@@ -634,7 +744,7 @@ def rename_note(file_id):
     if not name:
         return jsonify({"error": "Name required"}), 400
     conn = get_db()
-    conn.execute("UPDATE files SET original_name = ? WHERE id = ?", (name, file_id))
+    conn.execute("UPDATE files SET original_name = ? WHERE id = ? AND user_id = ?", (name, file_id, uid()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -645,7 +755,7 @@ def update_note_notebook(file_id):
     data = request.get_json()
     notebook = data.get("notebook") or DEFAULT_NOTEBOOK
     conn = get_db()
-    conn.execute("UPDATE files SET notebook = ? WHERE id = ?", (notebook, file_id))
+    conn.execute("UPDATE files SET notebook = ? WHERE id = ? AND user_id = ?", (notebook, file_id, uid()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -654,12 +764,12 @@ def update_note_notebook(file_id):
 @app.route("/library/<file_id>/star", methods=["PUT"])
 def toggle_star(file_id):
     conn = get_db()
-    row = conn.execute("SELECT starred FROM files WHERE id = ?", (file_id,)).fetchone()
+    row = conn.execute("SELECT starred FROM files WHERE id = ? AND user_id = ?", (file_id, uid())).fetchone()
     if not row:
         conn.close()
         return jsonify({"error": "File not found"}), 404
     new_val = 0 if row["starred"] else 1
-    conn.execute("UPDATE files SET starred = ? WHERE id = ?", (new_val, file_id))
+    conn.execute("UPDATE files SET starred = ? WHERE id = ? AND user_id = ?", (new_val, file_id, uid()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True, "starred": new_val})
@@ -668,7 +778,7 @@ def toggle_star(file_id):
 @app.route("/library/<file_id>/duplicate", methods=["POST"])
 def duplicate_note(file_id):
     conn = get_db()
-    row = conn.execute("SELECT * FROM files WHERE id = ?", (file_id,)).fetchone()
+    row = conn.execute("SELECT * FROM files WHERE id = ? AND user_id = ?", (file_id, uid())).fetchone()
     if not row:
         conn.close()
         return jsonify({"error": "File not found"}), 404
@@ -688,9 +798,9 @@ def duplicate_note(file_id):
 
     conn.execute(
         "INSERT INTO files (id, original_name, mp3_path, duration, transcription, transcription_en, "
-        "created_at, updated_at, tags, notebook, starred) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
+        "created_at, updated_at, tags, notebook, starred, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
         (new_id, new_name, new_mp3, row["duration"], row["transcription"], row["transcription_en"],
-         now, now, row["tags"], row["notebook"])
+         now, now, row["tags"], row["notebook"], uid())
     )
     conn.commit()
     conn.close()
@@ -700,7 +810,7 @@ def duplicate_note(file_id):
 @app.route("/library/<file_id>/trash", methods=["PUT"])
 def trash_note(file_id):
     conn = get_db()
-    conn.execute("UPDATE files SET trashed_at = ? WHERE id = ?", (datetime.now().isoformat(), file_id))
+    conn.execute("UPDATE files SET trashed_at = ? WHERE id = ? AND user_id = ?", (datetime.now().isoformat(), file_id, uid()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -709,7 +819,7 @@ def trash_note(file_id):
 @app.route("/library/<file_id>/restore", methods=["PUT"])
 def restore_note(file_id):
     conn = get_db()
-    conn.execute("UPDATE files SET trashed_at = NULL WHERE id = ?", (file_id,))
+    conn.execute("UPDATE files SET trashed_at = NULL WHERE id = ? AND user_id = ?", (file_id, uid()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -718,13 +828,13 @@ def restore_note(file_id):
 @app.route("/library/empty-trash", methods=["POST"])
 def empty_trash():
     conn = get_db()
-    trashed = conn.execute("SELECT id, mp3_path FROM files WHERE trashed_at IS NOT NULL").fetchall()
+    trashed = conn.execute("SELECT id, mp3_path FROM files WHERE trashed_at IS NOT NULL AND user_id = ?", (uid(),)).fetchall()
     for row in trashed:
         if row["mp3_path"]:
             mp3_full = os.path.join(LIBRARY_FOLDER, row["mp3_path"])
             if os.path.exists(mp3_full):
                 os.remove(mp3_full)
-    conn.execute("DELETE FROM files WHERE trashed_at IS NOT NULL")
+    conn.execute("DELETE FROM files WHERE trashed_at IS NOT NULL AND user_id = ?", (uid(),))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -734,7 +844,7 @@ def empty_trash():
 def library_translate(file_id):
     """Re-translate a file's transcription to English."""
     conn = get_db()
-    row = conn.execute("SELECT transcription FROM files WHERE id = ?", (file_id,)).fetchone()
+    row = conn.execute("SELECT transcription FROM files WHERE id = ? AND user_id = ?", (file_id, uid())).fetchone()
     conn.close()
     if not row:
         return jsonify({"error": "File not found"}), 404
@@ -742,7 +852,7 @@ def library_translate(file_id):
     if not text_en:
         return jsonify({"error": "OPENAI_API_KEY not set"}), 500
     conn = get_db()
-    conn.execute("UPDATE files SET transcription_en = ? WHERE id = ?", (text_en, file_id))
+    conn.execute("UPDATE files SET transcription_en = ? WHERE id = ? AND user_id = ?", (text_en, file_id, uid()))
     conn.commit()
     conn.close()
     return jsonify({"text_en": text_en})
@@ -752,7 +862,7 @@ def library_translate(file_id):
 def library_delete(file_id):
     """Permanent delete (used from trash) or move to trash."""
     conn = get_db()
-    row = conn.execute("SELECT mp3_path, trashed_at FROM files WHERE id = ?", (file_id,)).fetchone()
+    row = conn.execute("SELECT mp3_path, trashed_at FROM files WHERE id = ? AND user_id = ?", (file_id, uid())).fetchone()
     if not row:
         conn.close()
         return jsonify({"error": "File not found"}), 404
@@ -763,10 +873,10 @@ def library_delete(file_id):
             mp3_full = os.path.join(LIBRARY_FOLDER, row["mp3_path"])
             if os.path.exists(mp3_full):
                 os.remove(mp3_full)
-        conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
+        conn.execute("DELETE FROM files WHERE id = ? AND user_id = ?", (file_id, uid()))
     else:
         # Move to trash
-        conn.execute("UPDATE files SET trashed_at = ? WHERE id = ?", (datetime.now().isoformat(), file_id))
+        conn.execute("UPDATE files SET trashed_at = ? WHERE id = ? AND user_id = ?", (datetime.now().isoformat(), file_id, uid()))
 
     conn.commit()
     conn.close()
@@ -776,7 +886,7 @@ def library_delete(file_id):
 @app.route("/library/<file_id>/audio")
 def library_audio(file_id):
     conn = get_db()
-    row = conn.execute("SELECT mp3_path FROM files WHERE id = ?", (file_id,)).fetchone()
+    row = conn.execute("SELECT mp3_path FROM files WHERE id = ? AND user_id = ?", (file_id, uid())).fetchone()
     conn.close()
     if not row:
         return jsonify({"error": "File not found"}), 404
@@ -787,12 +897,13 @@ def library_audio(file_id):
 def get_topic_map():
     conn = get_db()
     cached = conn.execute(
-        "SELECT value, file_hash, updated_at FROM cache WHERE key = 'topic_map'"
+        "SELECT value, file_hash, updated_at FROM cache WHERE key = 'topic_map' AND user_id = ?",
+        (uid(),)
     ).fetchone()
     if not cached or not cached["value"]:
         conn.close()
         return jsonify({"exists": False})
-    current_hash = compute_library_hash(conn)
+    current_hash = compute_library_hash(conn, uid())
     conn.close()
     return jsonify({
         "exists": True,
@@ -811,9 +922,10 @@ def build_topic_map():
     conn = get_db()
 
     # Check cache
-    current_hash = compute_library_hash(conn)
+    current_hash = compute_library_hash(conn, uid())
     cached = conn.execute(
-        "SELECT value, file_hash FROM cache WHERE key = 'topic_map'"
+        "SELECT value, file_hash FROM cache WHERE key = 'topic_map' AND user_id = ?",
+        (uid(),)
     ).fetchone()
     if cached and cached["file_hash"] == current_hash:
         conn.close()
@@ -822,7 +934,8 @@ def build_topic_map():
     # Gather all transcriptions
     rows = conn.execute(
         "SELECT id, original_name, transcription_en, transcription FROM files "
-        "WHERE transcription IS NOT NULL ORDER BY created_at"
+        "WHERE transcription IS NOT NULL AND user_id = ? ORDER BY created_at",
+        (uid(),)
     ).fetchall()
 
     if len(rows) < 2:
@@ -913,11 +1026,18 @@ def build_topic_map():
 
     topic_map["file_lookup"] = file_lookup
 
-    # Cache result
-    conn.execute(
-        "INSERT OR REPLACE INTO cache (key, value, file_hash, updated_at) VALUES (?, ?, ?, ?)",
-        ("topic_map", json.dumps(topic_map), current_hash, datetime.now().isoformat())
-    )
+    # Cache result — use upsert pattern
+    existing_cache = conn.execute("SELECT key FROM cache WHERE key = 'topic_map' AND user_id = ?", (uid(),)).fetchone()
+    if existing_cache:
+        conn.execute(
+            "UPDATE cache SET value = ?, file_hash = ?, updated_at = ? WHERE key = 'topic_map' AND user_id = ?",
+            (json.dumps(topic_map), current_hash, datetime.now().isoformat(), uid())
+        )
+    else:
+        conn.execute(
+            "INSERT INTO cache (key, value, file_hash, updated_at, user_id) VALUES (?, ?, ?, ?, ?)",
+            ("topic_map", json.dumps(topic_map), current_hash, datetime.now().isoformat(), uid())
+        )
     conn.commit()
     conn.close()
 
@@ -931,7 +1051,8 @@ def list_tags():
     """List all unique tags with note counts."""
     conn = get_db()
     rows = conn.execute(
-        "SELECT tags FROM files WHERE tags IS NOT NULL AND tags != '' AND trashed_at IS NULL"
+        "SELECT tags FROM files WHERE tags IS NOT NULL AND tags != '' AND trashed_at IS NULL AND user_id = ?",
+        (uid(),)
     ).fetchall()
     conn.close()
     tag_counts = {}
@@ -954,8 +1075,8 @@ def rename_tag():
         return jsonify({"error": "Both old and new tag names required"}), 400
     conn = get_db()
     rows = conn.execute(
-        "SELECT id, tags FROM files WHERE tags LIKE ? AND trashed_at IS NULL",
-        (f'%"{old_name}"%',)
+        "SELECT id, tags FROM files WHERE tags LIKE ? AND trashed_at IS NULL AND user_id = ?",
+        (f'%"{old_name}"%', uid())
     ).fetchall()
     updated = 0
     for r in rows:
@@ -983,7 +1104,8 @@ def merge_tags():
         return jsonify({"error": "Sources and target required"}), 400
     conn = get_db()
     rows = conn.execute(
-        "SELECT id, tags FROM files WHERE tags IS NOT NULL AND trashed_at IS NULL"
+        "SELECT id, tags FROM files WHERE tags IS NOT NULL AND trashed_at IS NULL AND user_id = ?",
+        (uid(),)
     ).fetchall()
     updated = 0
     for r in rows:
@@ -1007,7 +1129,7 @@ def update_note_tags(file_id):
     data = request.get_json()
     tags = data.get("tags", [])
     conn = get_db()
-    conn.execute("UPDATE files SET tags = ? WHERE id = ?", (json.dumps(tags), file_id))
+    conn.execute("UPDATE files SET tags = ? WHERE id = ? AND user_id = ?", (json.dumps(tags), file_id, uid()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True, "tags": tags})
@@ -1020,7 +1142,7 @@ def set_notebook_stack(name):
     data = request.get_json()
     stack = (data.get("stack") or "").strip()
     conn = get_db()
-    conn.execute("UPDATE notebooks SET stack = ? WHERE name = ?", (stack or None, name))
+    conn.execute("UPDATE notebooks SET stack = ? WHERE name = ? AND user_id = ?", (stack or None, name, uid()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -1041,18 +1163,18 @@ def bulk_action():
 
     if action == "trash":
         now = datetime.now().isoformat()
-        conn.execute(f"UPDATE files SET trashed_at = ? WHERE id IN ({placeholders})", [now] + ids)
+        conn.execute(f"UPDATE files SET trashed_at = ? WHERE id IN ({placeholders}) AND user_id = ?", [now] + ids + [uid()])
     elif action == "star":
-        conn.execute(f"UPDATE files SET starred = 1 WHERE id IN ({placeholders})", ids)
+        conn.execute(f"UPDATE files SET starred = 1 WHERE id IN ({placeholders}) AND user_id = ?", ids + [uid()])
     elif action == "unstar":
-        conn.execute(f"UPDATE files SET starred = 0 WHERE id IN ({placeholders})", ids)
+        conn.execute(f"UPDATE files SET starred = 0 WHERE id IN ({placeholders}) AND user_id = ?", ids + [uid()])
     elif action == "move":
         notebook = data.get("notebook", DEFAULT_NOTEBOOK)
-        conn.execute(f"UPDATE files SET notebook = ? WHERE id IN ({placeholders})", [notebook] + ids)
+        conn.execute(f"UPDATE files SET notebook = ? WHERE id IN ({placeholders}) AND user_id = ?", [notebook] + ids + [uid()])
     elif action == "tag":
         tag = (data.get("tag") or "").strip()
         if tag:
-            rows = conn.execute(f"SELECT id, tags FROM files WHERE id IN ({placeholders})", ids).fetchall()
+            rows = conn.execute(f"SELECT id, tags FROM files WHERE id IN ({placeholders}) AND user_id = ?", ids + [uid()]).fetchall()
             for r in rows:
                 try:
                     tags = json.loads(r["tags"]) if r["tags"] else []
@@ -1064,7 +1186,7 @@ def bulk_action():
     elif action == "untag":
         tag = (data.get("tag") or "").strip()
         if tag:
-            rows = conn.execute(f"SELECT id, tags FROM files WHERE id IN ({placeholders})", ids).fetchall()
+            rows = conn.execute(f"SELECT id, tags FROM files WHERE id IN ({placeholders}) AND user_id = ?", ids + [uid()]).fetchall()
             for r in rows:
                 try:
                     tags = json.loads(r["tags"]) if r["tags"] else []
@@ -1075,12 +1197,12 @@ def bulk_action():
     elif action == "delete":
         # Permanent delete for trashed notes
         for fid in ids:
-            row = conn.execute("SELECT mp3_path FROM files WHERE id = ?", (fid,)).fetchone()
+            row = conn.execute("SELECT mp3_path FROM files WHERE id = ? AND user_id = ?", (fid, uid())).fetchone()
             if row and row["mp3_path"]:
                 mp3_full = os.path.join(LIBRARY_FOLDER, row["mp3_path"])
                 if os.path.exists(mp3_full):
                     os.remove(mp3_full)
-        conn.execute(f"DELETE FROM files WHERE id IN ({placeholders})", ids)
+        conn.execute(f"DELETE FROM files WHERE id IN ({placeholders}) AND user_id = ?", ids + [uid()])
     else:
         conn.close()
         return jsonify({"error": f"Unknown action: {action}"}), 400
@@ -1095,7 +1217,7 @@ def bulk_action():
 @app.route("/saved-searches")
 def list_saved_searches():
     conn = get_db()
-    rows = conn.execute("SELECT * FROM saved_searches ORDER BY created_at DESC").fetchall()
+    rows = conn.execute("SELECT * FROM saved_searches WHERE user_id = ? ORDER BY created_at DESC", (uid(),)).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
@@ -1111,8 +1233,8 @@ def create_saved_search():
     search_id = str(uuid.uuid4())
     conn = get_db()
     conn.execute(
-        "INSERT INTO saved_searches (id, name, query, filters, created_at) VALUES (?, ?, ?, ?, ?)",
-        (search_id, name, query, json.dumps(filters), datetime.now().isoformat())
+        "INSERT INTO saved_searches (id, name, query, filters, created_at, user_id) VALUES (?, ?, ?, ?, ?, ?)",
+        (search_id, name, query, json.dumps(filters), datetime.now().isoformat(), uid())
     )
     conn.commit()
     conn.close()
@@ -1122,7 +1244,7 @@ def create_saved_search():
 @app.route("/saved-searches/<search_id>", methods=["DELETE"])
 def delete_saved_search(search_id):
     conn = get_db()
-    conn.execute("DELETE FROM saved_searches WHERE id = ?", (search_id,))
+    conn.execute("DELETE FROM saved_searches WHERE id = ? AND user_id = ?", (search_id, uid()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -1142,6 +1264,13 @@ def upload_attachment(file_id):
     if not file.filename:
         return jsonify({"error": "No file selected"}), 400
 
+    # Verify the note belongs to this user
+    conn = get_db()
+    note = conn.execute("SELECT id FROM files WHERE id = ? AND user_id = ?", (file_id, uid())).fetchone()
+    if not note:
+        conn.close()
+        return jsonify({"error": "File not found"}), 404
+
     att_id = str(uuid.uuid4())
     ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
     save_name = att_id + ("." + ext if ext else "")
@@ -1151,10 +1280,9 @@ def upload_attachment(file_id):
     mime = mimetypes.guess_type(file.filename)[0] or "application/octet-stream"
     size = os.path.getsize(save_path)
 
-    conn = get_db()
     conn.execute(
-        "INSERT INTO attachments (id, file_id, filename, mime_type, size, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-        (att_id, file_id, file.filename, mime, size, datetime.now().isoformat())
+        "INSERT INTO attachments (id, file_id, filename, mime_type, size, created_at, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (att_id, file_id, file.filename, mime, size, datetime.now().isoformat(), uid())
     )
     conn.commit()
     conn.close()
@@ -1170,7 +1298,7 @@ def upload_attachment(file_id):
 @app.route("/attachments/<att_id>")
 def serve_attachment(att_id):
     conn = get_db()
-    row = conn.execute("SELECT filename, mime_type FROM attachments WHERE id = ?", (att_id,)).fetchone()
+    row = conn.execute("SELECT filename, mime_type FROM attachments WHERE id = ? AND user_id = ?", (att_id, uid())).fetchone()
     conn.close()
     if not row:
         return jsonify({"error": "Not found"}), 404
@@ -1189,11 +1317,11 @@ def serve_attachment(att_id):
 @app.route("/attachments/<att_id>", methods=["DELETE"])
 def delete_attachment(att_id):
     conn = get_db()
-    row = conn.execute("SELECT id FROM attachments WHERE id = ?", (att_id,)).fetchone()
+    row = conn.execute("SELECT id FROM attachments WHERE id = ? AND user_id = ?", (att_id, uid())).fetchone()
     if not row:
         conn.close()
         return jsonify({"error": "Not found"}), 404
-    conn.execute("DELETE FROM attachments WHERE id = ?", (att_id,))
+    conn.execute("DELETE FROM attachments WHERE id = ? AND user_id = ?", (att_id, uid()))
     conn.commit()
     conn.close()
     # Remove file from disk
@@ -1208,8 +1336,8 @@ def delete_attachment(att_id):
 def list_attachments(file_id):
     conn = get_db()
     rows = conn.execute(
-        "SELECT id, filename, mime_type, size, created_at FROM attachments WHERE file_id = ? ORDER BY created_at",
-        (file_id,)
+        "SELECT id, filename, mime_type, size, created_at FROM attachments WHERE file_id = ? AND user_id = ? ORDER BY created_at",
+        (file_id, uid())
     ).fetchall()
     conn.close()
     result = []
@@ -1231,9 +1359,9 @@ def list_all_files():
         "SELECT a.id, a.filename, a.mime_type, a.size, a.created_at, a.file_id, "
         "f.original_name as note_name, f.notebook "
         "FROM attachments a LEFT JOIN files f ON a.file_id = f.id "
-        "WHERE f.trashed_at IS NULL"
+        "WHERE f.trashed_at IS NULL AND a.user_id = ?"
     )
-    params = []
+    params = [uid()]
     if q:
         query += " AND a.filename LIKE ?"
         params.append(f"%{q}%")
@@ -1244,7 +1372,8 @@ def list_all_files():
     query += " ORDER BY a.created_at DESC"
     rows = conn.execute(query, params).fetchall()
     total_size = conn.execute(
-        "SELECT COALESCE(SUM(a.size), 0) FROM attachments a LEFT JOIN files f ON a.file_id = f.id WHERE f.trashed_at IS NULL"
+        "SELECT COALESCE(SUM(a.size), 0) FROM attachments a LEFT JOIN files f ON a.file_id = f.id WHERE f.trashed_at IS NULL AND a.user_id = ?",
+        (uid(),)
     ).fetchone()[0]
     conn.close()
     result = []
@@ -1269,9 +1398,9 @@ def upload_standalone_file():
     file_id = str(uuid.uuid4())
     conn = get_db()
     conn.execute(
-        "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at, notebook) "
-        "VALUES (?, ?, NULL, 0, '', ?, ?)",
-        (file_id, file.filename, datetime.now().isoformat(), "My Notebook")
+        "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at, notebook, user_id) "
+        "VALUES (?, ?, NULL, 0, '', ?, ?, ?)",
+        (file_id, file.filename, datetime.now().isoformat(), DEFAULT_NOTEBOOK, uid())
     )
 
     # Save attachment
@@ -1283,8 +1412,8 @@ def upload_standalone_file():
     mime = mimetypes.guess_type(file.filename)[0] or "application/octet-stream"
     size = os.path.getsize(save_path)
     conn.execute(
-        "INSERT INTO attachments (id, file_id, filename, mime_type, size, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-        (att_id, file_id, file.filename, mime, size, datetime.now().isoformat())
+        "INSERT INTO attachments (id, file_id, filename, mime_type, size, created_at, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (att_id, file_id, file.filename, mime, size, datetime.now().isoformat(), uid())
     )
     conn.commit()
     conn.close()
@@ -1299,8 +1428,8 @@ def search_note_titles():
         return jsonify([])
     conn = get_db()
     rows = conn.execute(
-        "SELECT id, original_name FROM files WHERE trashed_at IS NULL AND original_name LIKE ? LIMIT 10",
-        (f"%{q}%",)
+        "SELECT id, original_name FROM files WHERE trashed_at IS NULL AND original_name LIKE ? AND user_id = ? LIMIT 10",
+        (f"%{q}%", uid())
     ).fetchall()
     conn.close()
     return jsonify([{"id": r["id"], "name": r["original_name"]} for r in rows])
@@ -1397,10 +1526,15 @@ def import_enex():
                 or DEFAULT_NOTEBOOK
             ).strip()
             if notebook_name and notebook_name not in created_notebooks:
-                conn.execute(
-                    "INSERT OR IGNORE INTO notebooks (name, created_at) VALUES (?, ?)",
-                    (notebook_name, datetime.now().isoformat())
-                )
+                # Check if notebook exists for this user
+                existing_nb = conn.execute(
+                    "SELECT id FROM notebooks WHERE name = ? AND user_id = ?", (notebook_name, uid())
+                ).fetchone()
+                if not existing_nb:
+                    conn.execute(
+                        "INSERT INTO notebooks (id, name, created_at, user_id) VALUES (?, ?, ?, ?)",
+                        (str(uuid.uuid4()), notebook_name, datetime.now().isoformat(), uid())
+                    )
                 created_notebooks.add(notebook_name)
 
             # Extract additional note-attributes metadata
@@ -1422,9 +1556,9 @@ def import_enex():
                 html_content = html_content + '<hr>' + meta_html
 
             conn.execute(
-                "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at, updated_at, tags, notebook) "
-                "VALUES (?, ?, NULL, 0, ?, ?, ?, ?, ?)",
-                (file_id, title, html_content, created, updated, tags, notebook_name)
+                "INSERT INTO files (id, original_name, mp3_path, duration, transcription, created_at, updated_at, tags, notebook, user_id) "
+                "VALUES (?, ?, NULL, 0, ?, ?, ?, ?, ?, ?)",
+                (file_id, title, html_content, created, updated, tags, notebook_name, uid())
             )
             imported.append({"file_id": file_id, "title": title, "notebook": notebook_name})
 
@@ -1453,8 +1587,8 @@ def list_versions(file_id):
     rows = conn.execute(
         "SELECT id, title, created_at, source, "
         "length(COALESCE(transcription, '')) + length(COALESCE(transcription_en, '')) as size "
-        "FROM note_versions WHERE file_id = ? ORDER BY created_at DESC",
-        (file_id,)
+        "FROM note_versions WHERE file_id = ? AND user_id = ? ORDER BY created_at DESC",
+        (file_id, uid())
     ).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
@@ -1464,8 +1598,8 @@ def list_versions(file_id):
 def get_version(file_id, version_id):
     conn = get_db()
     row = conn.execute(
-        "SELECT * FROM note_versions WHERE id = ? AND file_id = ?",
-        (version_id, file_id)
+        "SELECT * FROM note_versions WHERE id = ? AND file_id = ? AND user_id = ?",
+        (version_id, file_id, uid())
     ).fetchone()
     conn.close()
     if not row:
@@ -1477,26 +1611,26 @@ def get_version(file_id, version_id):
 def restore_version(file_id, version_id):
     conn = get_db()
     ver = conn.execute(
-        "SELECT * FROM note_versions WHERE id = ? AND file_id = ?",
-        (version_id, file_id)
+        "SELECT * FROM note_versions WHERE id = ? AND file_id = ? AND user_id = ?",
+        (version_id, file_id, uid())
     ).fetchone()
     if not ver:
         conn.close()
         return jsonify({"error": "Version not found"}), 404
     # Save current state as a version before restoring
-    old = conn.execute("SELECT original_name, transcription, transcription_en FROM files WHERE id = ?", (file_id,)).fetchone()
+    old = conn.execute("SELECT original_name, transcription, transcription_en FROM files WHERE id = ? AND user_id = ?", (file_id, uid())).fetchone()
     if old:
         conn.execute(
-            "INSERT INTO note_versions (id, file_id, title, transcription, transcription_en, created_at, source) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO note_versions (id, file_id, title, transcription, transcription_en, created_at, source, user_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (str(uuid.uuid4()), file_id, old["original_name"],
              old["transcription"] or "", old["transcription_en"] or "",
-             datetime.now().isoformat(), "before_restore")
+             datetime.now().isoformat(), "before_restore", uid())
         )
     # Restore
     conn.execute(
-        "UPDATE files SET transcription = ?, transcription_en = ?, updated_at = ? WHERE id = ?",
-        (ver["transcription"], ver["transcription_en"], datetime.now().isoformat(), file_id)
+        "UPDATE files SET transcription = ?, transcription_en = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+        (ver["transcription"], ver["transcription_en"], datetime.now().isoformat(), file_id, uid())
     )
     conn.commit()
     conn.close()
@@ -1508,7 +1642,7 @@ def restore_version(file_id, version_id):
 @app.route("/library/<file_id>/export/<fmt>")
 def export_note(file_id, fmt):
     conn = get_db()
-    row = conn.execute("SELECT * FROM files WHERE id = ?", (file_id,)).fetchone()
+    row = conn.execute("SELECT * FROM files WHERE id = ? AND user_id = ?", (file_id, uid())).fetchone()
     conn.close()
     if not row:
         return jsonify({"error": "Not found"}), 404
@@ -1609,7 +1743,8 @@ def export_all_notes(fmt):
     """Export all non-trashed notes as a single file."""
     conn = get_db()
     rows = conn.execute(
-        "SELECT * FROM files WHERE trashed_at IS NULL ORDER BY created_at DESC"
+        "SELECT * FROM files WHERE trashed_at IS NULL AND user_id = ? ORDER BY created_at DESC",
+        (uid(),)
     ).fetchall()
     conn.close()
 
