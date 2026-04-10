@@ -1,6 +1,6 @@
 # Sememes
 
-Sememes is a personal knowledge tool that records voice notes, transcribes with Whisper, auto-translates to English, and turns all your memos into a cross-file **Topic Map** — an interactive graph of recurring themes linked back to the exact moments they appear.
+Sememes is a modern, multi-user note-taking application designed for seamless creation, organization, and management of personal knowledge. It features a clean and intuitive interface with rich text editing, fast search, tagging, and secure per-user data isolation. Built for scalability and extensibility, it enables advanced capabilities like semantic linking and topic mapping while maintaining a simple and focused user experience.
 
 ## Features
 
